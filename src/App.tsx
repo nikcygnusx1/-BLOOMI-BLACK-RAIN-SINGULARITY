@@ -3,6 +3,7 @@ import { createInitialWorld, saveSimState, loadSimState } from './sim/state';
 import { GeopoliticalOmegaEngine } from './sim/engines';
 import { SimState, DynastyMember } from './types';
 import { TradingViewChart } from './components/TradingViewChart';
+import { CernHadronAccelerator } from './components/CernHadronAccelerator';
 import { InfluenceWeb } from './components/InfluenceWeb';
 import { DynastyTree } from './components/DynastyTree';
 import { MacroPanel } from './components/MacroPanel';
@@ -46,6 +47,26 @@ export default function App() {
   const [selectedTicker, setSelectedTicker] = useState('APLH');
   const [selectedRegionId, setSelectedRegionId] = useState<string>('US');
   
+  // Biometric Pulse tracking
+  const [mouseSpeed, setMouseSpeed] = useState(0);
+  const lastMousePos = useRef({ x: 0, y: 0, time: Date.now() });
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const now = Date.now();
+      const dt = now - lastMousePos.current.time;
+      if (dt > 100) {
+        const dx = e.clientX - lastMousePos.current.x;
+        const dy = e.clientY - lastMousePos.current.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        setMouseSpeed(Math.min(90, Math.floor((dist / (dt || 1)) * 10)));
+        lastMousePos.current = { x: e.clientX, y: e.clientY, time: now };
+      }
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
   // CLI State
   const [cliInput, setCliInput] = useState('');
   const [terminalLogs, setTerminalLogs] = useState<string[]>([
@@ -86,6 +107,32 @@ export default function App() {
       setPrevStage(saved.careerStage || 'Family Office');
       setTerminalLogs(prev => [...prev, 'STATE RESTORATION: Loaded existing autosave state ledger.']);
     }
+
+    // Direct proxy for corporate dark pools block execution routing 
+    (window as any).__v_onDarkPoolTrade = (ticker: string, qty: number) => {
+      setGameState(prev => {
+        if (!prev) return null;
+        const next = { ...prev };
+        const price = next.markets[ticker]?.currentPrice || 100;
+        const totalCost = price * qty;
+        if (next.player.cash >= totalCost) {
+          next.player.cash -= totalCost;
+          next.player.assets.stocks[ticker] = (next.player.assets.stocks[ticker] || 0) + qty;
+          next.cables.push({
+            time: `${next.date || 'T0'} 10:04:15`,
+            source: 'DARK_POOL_SYS',
+            message: `STEALTH BLOCK TRADE FILLED: Acquired private placement of ${qty.toLocaleString()} shares of ${ticker} at direct parity $${price.toFixed(2)} with zero spot impact.`,
+            classification: 'EYES_ONLY'
+          });
+          playSyntheticSound('order');
+        }
+        return next;
+      });
+    };
+
+    return () => {
+      delete (window as any).__v_onDarkPoolTrade;
+    };
   }, []);
 
   // System ticking interval loop
@@ -342,9 +389,20 @@ export default function App() {
   // Support shorts natively in limits placements
   const handleLimitOrder = (side: 'buy' | 'sell', price: number, qty: number) => {
     const totalCap = price * qty;
-    if (side === 'buy' && gameState.player.cash < totalCap) {
-      logToTerminal('REJECTED: Insufficient cash funds to match buy order constraints.', true);
+    const selectedLeverage = (gameState.player as any).leverageSelected || 3;
+    const isLeveragedActive = gameState.leverageEnabled || selectedLeverage > 3;
+    const requiredMargin = isLeveragedActive ? (totalCap / selectedLeverage) : totalCap;
+
+    if (side === 'buy' && gameState.player.cash < requiredMargin) {
+      logToTerminal(`REJECTED: Insufficient cash holding. Margin of $${requiredMargin.toLocaleString(undefined, {maximumFractionDigits:0})} required at ${selectedLeverage}x leverage for a $${totalCap.toLocaleString()} order size.`, true);
       return;
+    }
+
+    // High frequency execution lag penalty for T0 Basement Quants
+    const isBasementT0 = gameState.careerStage === 'Family Office';
+    if (isBasementT0 && Math.random() < 0.20) {
+      logToTerminal(`WARNING [STREET_ALPHA_RETAIL]: Execution lag. Connection delay. Re-routing limit matching on global desk...`);
+      playSyntheticSound('warning');
     }
 
     setGameState((prev) => {
@@ -360,7 +418,7 @@ export default function App() {
           owner: 'player_dynasty',
           timestamp: Date.now()
         });
-        logToTerminal(`ORDER PLACED: Added ${side.toUpperCase()} limit on ${selectedTicker} at $${price.toFixed(2)} (Qty: ${qty})`);
+        logToTerminal(`ORDER PLACED: Added ${side.toUpperCase()} limit on ${selectedTicker} at $${price.toFixed(2)} (Qty: ${qty}) [Leverage: ${selectedLeverage}x]`);
       }
       return next;
     });
@@ -788,6 +846,22 @@ export default function App() {
             </span>
           </div>
 
+          <div className="flex items-center gap-2 bg-[#10151d] border border-[#1e2535] px-2 py-0.5 rounded text-[10px] select-none font-mono">
+            <span className="text-slate-400 tracking-tight">BIO_PULSE:</span>
+            <svg className="w-[80px] h-[14px]" viewBox="0 0 100 20">
+              <path
+                d={`M 0,10 L 20,10 L 25,${10 - mouseSpeed * 0.15} L 30,${10 + mouseSpeed * 0.2} L 35,${5 - mouseSpeed * 0.05} L 40,${15 + mouseSpeed * 0.08} L 45,${10 - mouseSpeed * 0.1} L 50,10 L 70,10 L 75,${10 - mouseSpeed * 0.15} L 80,${10 + mouseSpeed * 0.2} L 100,10`}
+                fill="none"
+                stroke={mouseSpeed > 45 ? "#ff3b5c" : "#00ff88"}
+                strokeWidth="1.5"
+                className="transition-all duration-75"
+              />
+            </svg>
+            <span className={`font-bold ${mouseSpeed > 45 ? 'text-[#ff3b5c] animate-pulse' : 'text-[#00ff88]'}`}>
+              {72 + mouseSpeed} BPM
+            </span>
+          </div>
+
           <div className="flex items-center gap-1.5">
             <span className="text-slate-400">THREAT:</span>
             <span className={`font-bold ${gameState.currentWeather !== 'CLEAR' ? 'text-red-500 animate-bounce' : 'text-slate-400'}`}>
@@ -1054,7 +1128,7 @@ export default function App() {
 
                     {/* Satellite trajectories sliding dot nodes */}
                     {gameState.satelliteCoordinates && gameState.satelliteCoordinates.map((sat: any) => (
-                      <g key={sat.id}>
+                      <g key={sat.name || sat.id}>
                         <circle cx={sat.x} cy={sat.y} r={4.5} className="fill-yellow-400 stroke-black stroke-1 animate-pulse" />
                         <line x1={sat.x} y1={sat.y} x2={sat.x} y2={sat.y + 400} className="stroke-yellow-450/20 stroke-1" style={{ strokeDasharray: '2, 4' }} />
                         <text x={sat.x + 8} y={sat.y - 1} className="text-[7.5px] fill-yellow-400/90 font-mono italic font-bold">{sat.name}</text>
@@ -1084,7 +1158,7 @@ export default function App() {
                     <span className="font-bold border-b border-yellow-500/30 block pb-0.5 mb-1 text-yellow-400">// ACTIVE SAT SENSOR ARRAY</span>
                     <div className="space-y-0.5">
                       {gameState.satelliteCoordinates && gameState.satelliteCoordinates.map((sat: any) => (
-                        <div key={sat.id} className="flex justify-between font-mono">
+                        <div key={sat.name || sat.id} className="flex justify-between font-mono">
                           <span>{sat.name}</span>
                           <span className="font-bold text-yellow-300">X:{sat.x.toFixed(0)} Y:{sat.y.toFixed(0)}</span>
                         </div>
@@ -1373,43 +1447,191 @@ export default function App() {
             {activeTab === 'DEBT' && (
               <div className="flex flex-col h-full overflow-hidden select-none font-mono">
                 <div className="flex justify-between items-center bg-[#0f1318] border border-[#1e2535] p-2 rounded-terminal mb-1.5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)]">
-                  <span className="text-[10px] text-[#00ff88] font-bold uppercase tracking-wider">// MACRO SOVEREIGN CDS DEBT STRESS TRACE</span>
-                  <span className="text-[9px] text-[#00c2ff] font-bold">CONTAGION TRANSM TRANSMISSION INTERFACE</span>
+                  <span className="text-[10px] text-[#00ff88] font-bold uppercase tracking-wider">// MACRO SOVEREIGN CDS DEBT STRESS TRACE & EXCHG</span>
+                  <span className="text-[9px] text-[#00c2ff] font-bold">CDS DERIVATIVES TRADING DESK</span>
                 </div>
 
                 <div className="flex-1 bg-[#07090d] border border-[#1e2535] p-3 rounded-terminal overflow-y-auto flex flex-col gap-3 font-terminal">
+                  {/* Sovereign country card grid */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                     {Object.values(gameState.countries).map((country: any) => {
                       const stressColor = country.debtStress > 70 ? 'text-[#ff3b5c] border-[#ff3b5c]' : country.debtStress > 40 ? 'text-orange-400 border-orange-500' : 'text-[#00ff88] border-emerald-500';
                       return (
-                        <div key={country.id} className={`bg-[#141920] border p-2 rounded-terminal uppercase text-center ${stressColor}/30`}>
-                          <span className="font-bold block text-[10px] mb-0.5">{country.name}</span>
-                          <span className="text-[8px] text-slate-500 block mb-1.5">// CDS RATIO EXP</span>
-                          
-                          <div className="space-y-0.5 text-[9.5px] text-left">
-                            <div className="flex justify-between">
-                              <span>DEBT STRESS:</span>
-                              <span className={`font-black ${stressColor}`}>{country.debtStress.toFixed(1)}%</span>
+                        <div key={country.id} className={`bg-[#141920] border p-2.5 rounded-terminal uppercase flex flex-col justify-between h-[155px] ${stressColor}/35`}>
+                          <div>
+                            <span className="font-bold block text-[10px] mb-0.5">{country.name}</span>
+                            <span className="text-[7.5px] text-slate-500 block mb-1.5">// CDS SOVEREIGN COLLATERAL</span>
+                            
+                            <div className="space-y-0.5 text-[9px] text-left">
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">DEBT STRESS:</span>
+                                <span className={`font-black ${stressColor}`}>{country.debtStress.toFixed(1)}%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">BONDS OUT:</span>
+                                <span className="text-slate-300 font-bold">${(country.bondsIssued / 1e9).toFixed(1)}B</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">BASE INTER:</span>
+                                <span className="text-slate-300">{(country.interestRate * 100).toFixed(2)}%</span>
+                              </div>
                             </div>
-                            <div className="flex justify-between">
-                              <span>BONDS ISSUED:</span>
-                              <span className="text-white">${(country.bondsIssued / 1e9).toFixed(1)}B</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>BASE RATE:</span>
-                              <span className="text-white">{(country.interestRate * 100).toFixed(2)}%</span>
-                            </div>
+                          </div>
+
+                          <div className="flex gap-1.5 mt-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setGameState(prev => {
+                                  if (!prev) return null;
+                                  const premium = 15000500;
+                                  if (prev.player.cash < premium) {
+                                    logToTerminal('REJECTED: Insufficient fund liquidity to cover $15M default policy payment premium.', true);
+                                    playSyntheticSound('warning');
+                                    return prev;
+                                  }
+                                  const next = { ...prev };
+                                  next.player.cash -= premium;
+                                  const arr = (next.player as any).cdsContracts || [];
+                                  arr.push({
+                                    id: Math.random().toString(),
+                                    countryId: country.id,
+                                    strikeStress: country.debtStress,
+                                    premiumPaid: premium,
+                                    currentValue: premium
+                                  });
+                                  (next.player as any).cdsContracts = arr;
+                                  logToTerminal(`CDS CONTRACT SECURED: Subscribed protective $15.0M default swap for ${country.name} at strike ${country.debtStress.toFixed(1)}% stress.`);
+                                  playSyntheticSound('order');
+                                  return next;
+                                });
+                              }}
+                              className="flex-1 bg-[#00ff88]/10 hover:bg-[#00ff88]/20 border border-[#00ff88]/40 hover:border-[#00ff88]/80 text-[#00ff88] font-bold text-[8px] py-1 uppercase rounded cursor-pointer transition-all duration-100"
+                            >
+                              +15M CDS
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setGameState(prev => {
+                                  if (!prev) return null;
+                                  const premium = 50000000;
+                                  if (prev.player.cash < premium) {
+                                    logToTerminal('REJECTED: Insufficient fund liquidity to cover $50M default policy payment premium.', true);
+                                    playSyntheticSound('warning');
+                                    return prev;
+                                  }
+                                  const next = { ...prev };
+                                  next.player.cash -= premium;
+                                  const arr = (next.player as any).cdsContracts || [];
+                                  arr.push({
+                                    id: Math.random().toString(),
+                                    countryId: country.id,
+                                    strikeStress: country.debtStress,
+                                    premiumPaid: premium,
+                                    currentValue: premium
+                                  });
+                                  (next.player as any).cdsContracts = arr;
+                                  logToTerminal(`CDS CONTRACT SECURED: Subscribed protective $50.0M default swap for ${country.name} at strike ${country.debtStress.toFixed(1)}% stress.`);
+                                  playSyntheticSound('order');
+                                  return next;
+                                });
+                              }}
+                              className="flex-1 bg-[#ffaa00]/10 hover:bg-[#ffaa00]/20 border border-[#ffaa00]/40 hover:border-[#ffaa00]/80 text-[#ffaa00] font-bold text-[8px] py-1 uppercase rounded cursor-pointer transition-all duration-100"
+                            >
+                              +50M CDS
+                            </button>
                           </div>
                         </div>
                       );
                     })}
                   </div>
 
-                  <div className="border border-[#1e2535] p-2 rounded-terminal bg-[#0a0c0f]">
-                    <span className="text-[8.5px] text-[#00c2ff] block mb-1 font-bold uppercase tracking-wider">// SYSTEM CONTAGION FACTOR</span>
-                    <p className="text-[9.5px] text-slate-300 leading-relaxed font-mono">
-                      High <span className="text-[#ff3b5c] font-bold">Sovereign Debt Stress</span> metrics on major corridors (especially inside US) spark compounding panic sell-offs on equities. Monitor indices closely to purchase protection derivatives.
-                    </p>
+                  {/* Active CDS portfolio holdings */}
+                  <div className="border border-[#1e2535] p-3 rounded-terminal bg-[#0a0c0f] flex-1 flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-center border-b border-[#1e2535] pb-1.5 mb-2 shrink-0">
+                        <span className="text-[9px] text-[#00c2ff] font-bold uppercase tracking-wider">// COMMITTED CDS HEDGE POSITIONS PORTFOLIO</span>
+                        <span className="text-[8px] text-slate-500 font-mono">VALUATIONS TICK REAL-TIME WITH SOVEREIGN RISK SPREADS</span>
+                      </div>
+
+                      <div className="h-[120px] overflow-y-auto space-y-1.5 pr-1">
+                        {(!((gameState.player as any).cdsContracts) || (gameState.player as any).cdsContracts.length === 0) ? (
+                          <div className="text-center text-slate-500 py-6 text-[10px] italic">
+                            No active default protection swaps secured on sovereign corridors. Purchase default coverage triggers to safeguard capital from contagion risk.
+                          </div>
+                        ) : (
+                          (gameState.player as any).cdsContracts.map((cds: any) => {
+                            const countryObj = gameState.countries[cds.countryId];
+                            const currentStress = countryObj ? countryObj.debtStress : cds.strikeStress;
+                            // Dynamically price the contract swap value to follow macro stress ratios perfectly!
+                            const stressMultiplier = Math.max(0.4, (currentStress / (cds.strikeStress || 50)));
+                            const calculatedSwapsCurrentValue = Math.floor(cds.premiumPaid * stressMultiplier * (currentStress > 65 ? 2.22 : 1.0));
+                            const yieldPct = ((calculatedSwapsCurrentValue - cds.premiumPaid) / cds.premiumPaid) * 100;
+
+                            return (
+                              <div key={cds.id} className="flex flex-wrap items-center justify-between p-2 rounded bg-[#10151f] border border-[#1e2535]/70 gap-2">
+                                <div className="flex items-center gap-2 font-mono">
+                                  <span className="text-[#00c2ff] font-black text-[10px] w-12">{cds.countryId} CDS</span>
+                                  <span className="text-slate-500 font-normal">STRIKE: {cds.strikeStress.toFixed(1)}%</span>
+                                  <span className="h-3 w-px bg-slate-800" />
+                                  <span className="text-slate-400">PREMIUM: <span className="text-white font-semibold">${(cds.premiumPaid / 1e6).toFixed(1)}M</span></span>
+                                  <span className="h-3 w-px bg-slate-800" />
+                                  <span className="text-slate-400">CURRENT_RISK: <span className={`font-bold ${currentStress > 60 ? 'text-[#ff3b5c]' : 'text-slate-300'}`}>{currentStress.toFixed(1)}%</span></span>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                  <div className="text-right">
+                                    <span className="text-slate-400 block text-[8px] leading-tight font-sans">VALUATION</span>
+                                    <span className="text-[#00ff88] font-bold block text-[10px] leading-tight font-mono">${calculatedSwapsCurrentValue.toLocaleString()}</span>
+                                    <span className={`text-[8.5px] font-mono leading-none block font-semibold ${yieldPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                      {yieldPct >= 0 ? '+' : ''}{yieldPct.toFixed(1)}%
+                                    </span>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setGameState(prev => {
+                                        if (!prev) return null;
+                                        const next = { ...prev };
+                                        const cContracts = (next.player as any).cdsContracts || [];
+                                        const matchingIdx = cContracts.findIndex((c: any) => c.id === cds.id);
+                                        if (matchingIdx !== -1) {
+                                          const item = cContracts[matchingIdx];
+                                          const cObj = next.countries[item.countryId];
+                                          const curSt = cObj ? cObj.debtStress : item.strikeStress;
+                                          const multObj = Math.max(0.4, (curSt / (item.strikeStress || 50)));
+                                          const finalVal = Math.floor(item.premiumPaid * multObj * (curSt > 65 ? 2.22 : 1.0));
+
+                                          next.player.cash += finalVal;
+                                          cContracts.splice(matchingIdx, 1);
+                                          (next.player as any).cdsContracts = cContracts;
+
+                                          logToTerminal(`CDS POSITION LIQUIDATED: Redeemed protective swap policy on ${item.countryId}. Credited $${finalVal.toLocaleString()} to liquid cash balances.`);
+                                          playSyntheticSound('profit');
+                                        }
+                                        return next;
+                                      });
+                                    }}
+                                    className="bg-[#00ff88]/10 hover:bg-[#00ff88]/35 border border-[#00ff88]/40 hover:border-[#00ff88]/70 text-[#00ff88] text-[9px] px-2 py-1 font-bold rounded cursor-pointer uppercase transition-all duration-100 font-terminal"
+                                  >
+                                    CASH OUT Swaps
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="border border-[#1e2535] p-2 rounded-terminal bg-[#07090b] mt-3">
+                      <span className="text-[8px] text-[#00c2ff] block mb-0.5 font-bold uppercase tracking-wider">// SYSTEM CONTAGION FACTOR</span>
+                      <p className="text-[9px] text-slate-300 leading-relaxed font-mono">
+                        High <span className="text-[#ff3b5c] font-bold">Sovereign Debt Stress</span> metrics on major corridors (especially inside US) spark compounding panic sell-offs on equities. Monitor indices closely to purchase protection derivatives. Liquidating CDS contracts at peak contagions realizes massive capital multiples.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1540,7 +1762,7 @@ export default function App() {
                       <span className="text-[8px] text-slate-400 block mb-1 font-bold">// CONSTELLATION OVERVIEW</span>
                       <div className="space-y-0.5 text-[9.5px] text-slate-300">
                         {gameState.satelliteCoordinates && gameState.satelliteCoordinates.map((sat: any) => (
-                          <div key={sat.id} className="flex justify-between border-b border-slate-900 pb-0.5">
+                          <div key={sat.name || sat.id} className="flex justify-between border-b border-slate-900 pb-0.5">
                             <span>{sat.name}:</span>
                             <span className="text-yellow-400 font-bold">AZ:{sat.x.toFixed(0)}</span>
                           </div>
@@ -1646,29 +1868,177 @@ export default function App() {
             )}
             {activeTab === 'TRADING' && (
               <div className="h-full flex overflow-hidden bg-[#0a0c0f]">
-                <div className="w-[185px] border-r border-[#1e2535] bg-[#0f1318] flex flex-col overflow-y-auto shrink-0 select-none rounded-terminal mr-2">
+                {/* Lateral ticker selector & leverage and bot settings */}
+                <div className="w-[195px] border-r border-[#1e2535] bg-[#0b0e14] flex flex-col shrink-0 select-none rounded-terminal mr-2 overflow-y-auto">
                   <div className="p-2 border-b border-[#1e2535] text-[9.5px] font-bold text-center text-[#00c2ff] bg-[#141920] uppercase font-terminal">TRADING TICKERS</div>
-                  {Object.keys(gameState.markets).map(sym => (
-                    <button
-                      key={sym}
-                      onClick={() => executeUnifiedCommand(`${sym} <GO>`)}
-                      className={`text-left p-2 text-[11px] border-b border-[#1e2535] cursor-pointer flex justify-between items-center transition-all font-terminal ${selectedTicker === sym ? 'bg-[#1a2030] text-[#00c2ff] font-bold border-l-2 border-l-[#00c2ff]' : 'text-slate-300 hover:bg-[#141920]'}`}
-                    >
-                      <span>{sym}</span>
-                      <span className="text-[10px] text-[#00ff88] font-bold font-terminal">${gameState.markets[sym]?.currentPrice.toFixed(2)}</span>
-                    </button>
-                  ))}
+                  <div className="flex-1 overflow-y-auto">
+                    {Object.keys(gameState.markets).map(sym => (
+                      <button
+                        key={sym}
+                        onClick={() => executeUnifiedCommand(`${sym} <GO>`)}
+                        className={`w-full text-left p-1.5 px-2.5 text-[11px] border-b border-[#1e2535] cursor-pointer flex justify-between items-center transition-all font-terminal ${selectedTicker === sym ? 'bg-[#1a2030] text-[#00c2ff] font-bold border-l-2 border-l-[#00c2ff]' : 'text-slate-300 hover:bg-[#141920]'}`}
+                      >
+                        <span className="truncate">{sym}</span>
+                        <span className="text-[9.5px] text-[#00ff88] font-bold font-terminal shrink-0">${gameState.markets[sym]?.currentPrice.toFixed(2)}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Leverage Selector Widget */}
+                  <div className="p-2 border-t border-[#1e2535] bg-[#0b0d12] flex flex-col gap-1 font-terminal shrink-0">
+                    <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">// SECTOR LEVERAGE CAP</span>
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGameState(prev => {
+                            if (!prev) return null;
+                            const next = { ...prev };
+                            const currentLev = (next.player as any).leverageSelected || 3;
+                            const idx = [1, 3, 5, 10, 25, 50, 100].indexOf(currentLev);
+                            const nextLev = [1, 3, 5, 10, 25, 50, 100][Math.max(0, idx - 1)];
+                            (next.player as any).leverageSelected = nextLev;
+                            logToTerminal(`LEVERAGE PROTOCOL SHIFTED: Capital multiplier reset to ${nextLev}x.`);
+                            playSyntheticSound('tick');
+                            return next;
+                          });
+                        }}
+                        className="px-1.5 py-0.5 text-[9px] bg-slate-800 hover:bg-slate-700 text-white font-bold cursor-pointer rounded"
+                      >-</button>
+                      <span className="text-[#ffaa00] font-black text-xs font-mono">{(gameState.player as any).leverageSelected || 3}X</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGameState(prev => {
+                            if (!prev) return null;
+                            const isLocked = prev.careerStage === 'Family Office';
+                            if (isLocked) {
+                              logToTerminal('REJECTED: Retail Basement tier restricted to 3X max leverage. Unlock "Emerging Manager" to lift restrictions.', true);
+                              playSyntheticSound('warning');
+                              return prev;
+                            }
+                            const next = { ...prev };
+                            const currentLev = (next.player as any).leverageSelected || 3;
+                            const idx = [1, 3, 5, 10, 25, 50, 100].indexOf(currentLev);
+                            const nextLev = [1, 3, 5, 10, 25, 50, 100][Math.min(6, idx + 1)];
+                            (next.player as any).leverageSelected = nextLev;
+                            logToTerminal(`LEVERAGE PROTOCOL SHIFTED: Capital multiplier reset to ${nextLev}x.`);
+                            playSyntheticSound('tick');
+                            return next;
+                          });
+                        }}
+                        className="px-1.5 py-0.5 text-[9px] bg-slate-800 hover:bg-slate-700 text-white font-bold cursor-pointer rounded"
+                      >+</button>
+                    </div>
+                    <p className="text-[7.5px] text-slate-500 leading-tight uppercase">Margin buffer threshold is {(45 / ((gameState.player as any).leverageSelected || 3)).toFixed(2)}% net equity.</p>
+                  </div>
+
+                  {/* Algorithmic Bots Widget */}
+                  <div className="p-2 border-t border-b border-[#1e2535] bg-[#07090d] flex flex-col gap-1 font-terminal shrink-0">
+                    <span className="text-[8px] text-[#00c2ff] font-bold uppercase tracking-wider">// QUANT AUTOMATION SERVICE</span>
+                    {/* Bot 1: HFT Sigma Trend */}
+                    <div className="flex items-center justify-between text-[8.5px] text-slate-300">
+                      <span>SIGMA BULL BOT:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGameState(prev => {
+                            if (!prev) return null;
+                            const isLocked = prev.careerStage === 'Family Office';
+                            if (isLocked) {
+                              logToTerminal('REJECTED: Algos locked for T0 Basement Quants. Ascend stage to authorize automated execution.', true);
+                              playSyntheticSound('warning');
+                              return prev;
+                            }
+                            const next = { ...prev };
+                            next.activeBots = next.activeBots || {};
+                            next.activeBots.sigmaHunter = !next.activeBots.sigmaHunter;
+                            logToTerminal(`BOT MATRIX: Sigma Bull Hunter auto-trading bot set to ${next.activeBots.sigmaHunter ? 'ACTIVE_ARMED' : 'STANDBY'}.`);
+                            playSyntheticSound('order');
+                            return next;
+                          });
+                        }}
+                        className={`px-1 py-0.5 text-[7px] font-bold cursor-pointer rounded border ${gameState.activeBots?.sigmaHunter ? 'bg-emerald-950 text-[#00ff88] border-emerald-500' : 'bg-slate-850 text-slate-400 border-slate-700'}`}
+                      >
+                        {gameState.activeBots?.sigmaHunter ? 'ACTIVE' : 'OFF'}
+                      </button>
+                    </div>
+
+                    {/* Bot 2: CDS Reaper */}
+                    <div className="flex items-center justify-between text-[8.5px] text-slate-300">
+                      <span>SVRN CDS REAPER:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGameState(prev => {
+                            if (!prev) return null;
+                            const isLocked = prev.careerStage === 'Family Office';
+                            if (isLocked) {
+                              logToTerminal('REJECTED: Algos locked for T0 Basement Quants. Ascend stage to authorize automated execution.', true);
+                              playSyntheticSound('warning');
+                              return prev;
+                            }
+                            const next = { ...prev };
+                            next.activeBots = next.activeBots || {};
+                            next.activeBots.cdsReaper = !next.activeBots.cdsReaper;
+                            logToTerminal(`BOT MATRIX: Sovereign CDS Reaper automated hedging bot set to ${next.activeBots.cdsReaper ? 'ACTIVE_ARMED' : 'STANDBY'}.`);
+                            playSyntheticSound('order');
+                            return next;
+                          });
+                        }}
+                        className={`px-1 py-0.5 text-[7px] font-bold cursor-pointer rounded border ${gameState.activeBots?.cdsReaper ? 'bg-emerald-950 text-[#00ff88] border-emerald-500' : 'bg-slate-850 text-slate-400 border-slate-700'}`}
+                      >
+                        {gameState.activeBots?.cdsReaper ? 'ACTIVE' : 'OFF'}
+                      </button>
+                    </div>
+
+                    {/* Bot 3: Dark Pools Arbitrage */}
+                    <div className="flex items-center justify-between text-[8.5px] text-slate-300">
+                      <span>SCYTHE HFT ARB:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGameState(prev => {
+                            if (!prev) return null;
+                            const isLocked = prev.careerStage === 'Family Office' || prev.careerStage === 'Emerging Manager';
+                            if (isLocked) {
+                              logToTerminal('REJECTED: High-frequency Dark Pool Arbitrage requires Tier 2 Hedge Fund Titan stage clearance.', true);
+                              playSyntheticSound('warning');
+                              return prev;
+                            }
+                            const next = { ...prev };
+                            next.activeBots = next.activeBots || {};
+                            next.activeBots.scytheArbitrage = !next.activeBots.scytheArbitrage;
+                            logToTerminal(`BOT MATRIX: Scythe Arbitrage High-Speed Execution bot set to ${next.activeBots.scytheArbitrage ? 'ACTIVE_ARMED' : 'STANDBY'}.`);
+                            playSyntheticSound('order');
+                            return next;
+                          });
+                        }}
+                        className={`px-1 py-0.5 text-[7px] font-bold cursor-pointer rounded border ${gameState.activeBots?.scytheArbitrage ? 'bg-emerald-950 text-[#00ff88] border-emerald-500' : 'bg-slate-850 text-slate-400 border-slate-705'}`}
+                      >
+                        {gameState.activeBots?.scytheArbitrage ? 'ACTIVE' : 'OFF'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1 h-full bg-[#0a0c0f]">
-                  {gameState && (
-                    <TradingViewChart 
-                      state={gameState} 
-                      activeTicker={selectedTicker} 
-                      onPlaceOrder={(side, price, qty) => {
-                        executeUnifiedCommand(`${side.toUpperCase()} ${selectedTicker} ${price.toFixed(2)} ${qty} <GO>`);
-                      }}
-                    />
-                  )}
+
+                {/* Main HFT chart split-panel */}
+                <div className="flex-1 flex flex-col lg:flex-row gap-2 h-full overflow-hidden">
+                  <div className="flex-1 h-full min-h-[260px]">
+                    {gameState && (
+                      <TradingViewChart 
+                        state={gameState} 
+                        activeTicker={selectedTicker} 
+                        onPlaceOrder={(side, price, qty) => {
+                          executeUnifiedCommand(`${side.toUpperCase()} ${selectedTicker} ${price.toFixed(2)} ${qty} <GO>`);
+                        }}
+                      />
+                    )}
+                  </div>
+                  {/* CERN Hadron particle collider readout */}
+                  <div className="w-full lg:w-[250px] xl:w-[280px] shrink-0 h-full">
+                    <CernHadronAccelerator state={gameState} activeTicker={selectedTicker} />
+                  </div>
                 </div>
               </div>
             )}

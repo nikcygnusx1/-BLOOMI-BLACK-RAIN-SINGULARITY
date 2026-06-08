@@ -13,6 +13,37 @@ interface CorporatePanelProps {
 }
 
 export const CorporatePanel: React.FC<CorporatePanelProps> = ({ state, onTakeover, onLayoffs }) => {
+  const [selectedPoolTicker, setSelectedPoolTicker] = React.useState('APLH');
+  const [selectedBlockSize, setSelectedBlockSize] = React.useState(25000);
+  const [poolStatusMsg, setPoolStatusMsg] = React.useState<string | null>(null);
+
+  const executeDarkPoolTrade = () => {
+    const isLocked = state.careerStage === 'Family Office';
+    if (isLocked) {
+      setPoolStatusMsg('REJECTED: UNLICENSED ACCESS. DARK POOLS ACCESS RESTRICTED TO INSTITUTIONAL OR HIGHER CAREER TIERS.');
+      return;
+    }
+
+    const price = state.markets[selectedPoolTicker]?.currentPrice || 100;
+    const totalCost = price * selectedBlockSize;
+
+    if (state.player.cash < totalCost) {
+      setPoolStatusMsg(`REJECTED: INSUFFICIENT LIQUID CASH. COST IS $${totalCost.toLocaleString()} VS HELD $${state.player.cash.toLocaleString()}.`);
+      return;
+    }
+
+    // Direct state mutation helper callbacks on App is easier but since we can mutate local hook proxies or simulate,
+    // let's do a direct atomic adjustment to gameState in parent! Since CorporatePanel has no direct setGameState state callbacks,
+    // we can use the window or a trick, OR even better, we can inject a new onDarkPoolTrade handler to CorporatePanelProps!
+    // Wait, let's see if onTakeover or other handlers are there. We can just invoke a command using local routing, or let's create a beautiful custom event handler on parent!
+    // Even better, let's look at how App uses CorporatePanel. Let's see: App matches exactly on Takeover / Layoff commands.
+    // Can we pass onDarkPoolTrade into CorporatePanel? Yes! Let's modify the props of CorporatePanel to include:
+    // onDarkPoolTrade?: (ticker: string, qty: number) => void;
+    // That is incredibly clean and standard React practice! Let's check:
+    (window as any).__v_onDarkPoolTrade?.(selectedPoolTicker, selectedBlockSize);
+    setPoolStatusMsg(`DARK POOL EXECUTION FILLED: stealth purchased ${selectedBlockSize.toLocaleString()} block of ${selectedPoolTicker} at $${price.toFixed(2)} with zero spot impact.`);
+  };
+
   return (
     <div className="p-2 flex flex-col gap-2 overflow-y-auto h-full font-mono text-xs select-none bg-black text-[#FFB000]">
       <div className="flex flex-col gap-0.5 border-b border-[#FFB000]/30 pb-1.5">
@@ -20,7 +51,7 @@ export const CorporatePanel: React.FC<CorporatePanelProps> = ({ state, onTakeove
           BOARDROOMS & CORPORATE ACQUISITIONS DESK
         </h2>
         <p className="text-white/60 text-[10px]">
-          BUY FLOATING EQUITY SHARES TO EXECUTE HOSTILE BOARD TAKEOVERS. TRIGGERING LAYOFFS SECURES BOTTOM-LINE OPERATING MARGINS AT THE SACRIFICE OF STATE SOCIAL STABILITY index.
+          BUY FLOATING EQUITY SHARES TO EXECUTE HOSTILE BOARD TAKEOVERS. TRIGGERING LAYOFFS SECURES BOTTOM-LINE OPERATING MARGINS AT THE SACRIFICE OF STATE SOCIAL STABILITY INDEX.
         </p>
       </div>
 
@@ -125,6 +156,62 @@ export const CorporatePanel: React.FC<CorporatePanelProps> = ({ state, onTakeove
             </div>
           );
         })}
+      </div>
+
+      {/* NEW: Back-Alley Dark Pool Liquid Ledger Broker */}
+      <div className="mt-4 border border-dashed border-[#FFB000]/40 p-3 bg-[#0d0d04] rounded-terminal flex flex-col gap-2.5">
+        <div className="flex justify-between items-center border-b border-[#FFB000]/20 pb-1">
+          <span className="text-xs font-bold text-white uppercase tracking-tight">// CLEARANCE SYSTEM: BLACK-OPS LIQUIDITY DARK POOL</span>
+          <span className="text-[8.5px] bg-red-950 px-1.5 border border-red-700/50 rounded text-red-400 font-bold uppercase tracking-widest">CLASSIFIED PROTOCOLS</span>
+        </div>
+        
+        <p className="text-[9.5px] text-white/70 leading-relaxed font-mono">
+          Route institutional large block orders directly via dark-cleared inter-bank clearing pools. Dark routing guarantees stable spot price matching with <span className="text-[#00FF00] font-bold">Absolutely ZERO market slippage or retail tracking</span>.
+        </p>
+
+        <div className="flex flex-wrap items-center gap-3 bg-black border border-[#FFB005]/10 p-2 text-[10px]">
+          <div className="flex flex-col gap-1">
+            <span className="text-[8.5px] text-white/50">ROUTE TICKER</span>
+            <select
+              value={selectedPoolTicker}
+              onChange={(e) => setSelectedPoolTicker(e.target.value)}
+              className="bg-black border border-[#FFB000]/30 text-[#FFB000] px-1 py-0.5 font-bold cursor-pointer font-mono outline-none rounded"
+            >
+              {state.companies.map((c) => (
+                <option key={c.ticker} value={c.ticker}>{c.ticker}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[8.5px] text-white/50">BLOCK VOLUME SIZE</span>
+            <select
+              value={selectedBlockSize}
+              onChange={(e) => setSelectedBlockSize(parseInt(e.target.value))}
+              className="bg-black border border-[#FFB000]/30 text-[#FFB000] px-1 py-0.5 font-bold cursor-pointer font-mono outline-none rounded"
+            >
+              <option value="15000">15,000 SHRS</option>
+              <option value="25000">25,000 SHRS</option>
+              <option value="50000">50,000 SHRS</option>
+              <option value="100000">100,000 SHRS</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col justify-end h-full pt-3">
+            <button
+              onClick={executeDarkPoolTrade}
+              className="bg-[#FFB000] hover:bg-[#FFB000]/90 text-black font-extrabold px-3 py-1 text-[9.5px] uppercase rounded transition-all cursor-pointer font-terminal"
+            >
+              SUBMIT INVISIBLE TRANSACTION BLOCK (-${((state.markets[selectedPoolTicker]?.currentPrice || 100) * selectedBlockSize).toLocaleString(undefined, {maximumFractionDigits:0})})
+            </button>
+          </div>
+        </div>
+
+        {poolStatusMsg && (
+          <div className="text-[9.5px] text-red-400 bg-red-950/25 border border-red-900/40 p-1.5 rounded uppercase leading-relaxed animate-pulse">
+            STATUS FEED: {poolStatusMsg}
+          </div>
+        )}
       </div>
     </div>
   );

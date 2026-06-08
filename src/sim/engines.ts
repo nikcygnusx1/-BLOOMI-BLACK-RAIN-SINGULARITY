@@ -298,25 +298,58 @@ export class GeopoliticalOmegaEngine {
     return state;
   }
 
+  private static boxMullerRandom(): number {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+  }
+
   // --- II. MARKET ENGINE: PREDATORY AGENT-AI "WOLVES FIGHT" ---
   private static tickMarkets(state: SimState): SimState {
     const dateStr = state.date;
 
-    Object.values(state.markets).forEach((market: Market) => {
-      // 1. NPC Predatory Wolves: front-run and Stop-Loss Hunt the player
-      // Check if player has placed bid/ask order book density
-      const playerBidsTotal = market.orderBook.bids.filter(o => o.owner === 'player_dynasty');
-      const playerAsksTotal = market.orderBook.asks.filter(o => o.owner === 'player_dynasty');
+    // Check for random global Black Swan events in this tick (1.5% chance)
+    const triggerBlackSwan = Math.random() < 0.015;
+    let blackSwanType: 'Cyber' | 'RateHike' | 'Coup' | 'BullRun' | 'None' = 'None';
+    let blackSwanTarget: string = '';
+    
+    if (triggerBlackSwan) {
+      const types: ('Cyber' | 'RateHike' | 'Coup' | 'BullRun')[] = ['Cyber', 'RateHike', 'Coup', 'BullRun'];
+      blackSwanType = types[Math.floor(Math.random() * types.length)];
+      
+      const tickers = Object.keys(state.markets);
+      blackSwanTarget = tickers[Math.floor(Math.random() * tickers.length)] || 'APLH';
 
-      // Citadels / Blackstone ("Pattern-Hunting Wolves") look for player's sizes
+      state.traumaLog.push({
+        id: Math.random().toString(),
+        tick: state.currentTick,
+        date: state.date,
+        eventType: 'MARKET_CRASH',
+        description: `BLACK SWAN DETECTED: [${blackSwanType.toUpperCase()} INCIDENT] sending shockwaves through sovereign clearing corridors. Asset ${blackSwanTarget} selected as gravitational epicenter.`,
+        severity: 9
+      });
+    }
+
+    Object.values(state.markets).forEach((market: Market) => {
+      // Find region of asset to bind to geopolitical indexes
+      let countryId = 'US';
+      if (market.ticker === 'DRAG' || market.ticker === 'SINO') countryId = 'CN';
+      else if (market.ticker === 'GLOB' || market.ticker === 'NORD') countryId = 'EU';
+      else if (market.ticker === 'GENE' || market.ticker === 'WETH-FUT') countryId = 'CH';
+      
+      const regionalVolatility = state.countries[countryId]?.volatility || 20;
+      const regionalUnrest = state.countries[countryId]?.unrest || 15;
+
+      // 1. NPC Predatory Wolves: front-run and Stop-Loss Hunt the player
+      const playerBidsTotal = market.orderBook.bids.filter(o => o.owner === 'player_dynasty');
+      
       state.hedgeFunds.forEach((fund: HedgeFund) => {
         if (fund.isWolf) {
-          // If player has large buy bounds, frontrun by bidding 0.01 higher
           if (playerBidsTotal.length > 0) {
             const playerMaxBid = Math.max(...playerBidsTotal.map(o => o.price));
             const fontRunPrice = playerMaxBid + 0.02;
 
-            // Wolf front-runs the player
             market.orderBook.bids.push({
               id: Math.random().toString(),
               side: 'buy',
@@ -336,8 +369,6 @@ export class GeopoliticalOmegaEngine {
             }
           }
 
-          // Stop-loss hunting behavior: If player has leveraged securities or large buys,
-          // the predatory fund places an aggressive block sell at low support levels to push price down and trigger panic liquidation
           if (fund.dynastyEnemy && Math.random() < 0.10) {
             const supportLevel = market.currentPrice * 0.94;
             market.orderBook.asks.push({
@@ -380,7 +411,6 @@ export class GeopoliticalOmegaEngine {
         const exePrice = (bid.price + ask.price) / 2;
         const volume = Math.min(bid.quantity, ask.quantity);
 
-        // Process Settlements
         this.settleTrade(state, market.ticker, bid.owner, ask.owner, exePrice, volume);
 
         bid.quantity -= volume;
@@ -393,30 +423,83 @@ export class GeopoliticalOmegaEngine {
         if (ask.quantity <= 0) market.orderBook.asks.shift();
       }
 
-      if (tradeMatched) {
-        market.currentPrice = matchedPrice;
-      } else {
-        // Moderate random fluctuation drift
-        const bidVolSum = market.orderBook.bids.reduce((sum, o) => sum + o.quantity, 0);
-        const askVolSum = market.orderBook.asks.reduce((sum, o) => sum + o.quantity, 0);
-        const imbalance = (bidVolSum - askVolSum) / (bidVolSum + askVolSum || 1);
-        const drift = imbalance * 0.003 * market.currentPrice;
-        market.currentPrice = Math.max(0.1, market.currentPrice + drift + (Math.random() - 0.5) * (market.currentPrice * 0.01));
+      // --- ADVANCED MONTE CARLO STOCHASTIC MATRIX (GBM Model with Jumps) ---
+      // We calculate a realistic Brownian path update for each ticker
+      // Drift = Imbalance drift + Geopolitical stability factor - region unrest
+      const bidVolSum = market.orderBook.bids.reduce((sum, o) => sum + o.quantity, 0);
+      const askVolSum = market.orderBook.asks.reduce((sum, o) => sum + o.quantity, 0);
+      const imbalance = (bidVolSum - askVolSum) / (bidVolSum + askVolSum || 1);
+      
+      const geoDrift = (100 - regionalUnrest) * 0.0001 - 0.005; // Negative drift on high unrest
+      const structuralDrift = imbalance * 0.004 + geoDrift;
+
+      // Volatility is mapped into standard deviation (0.01 to 0.08 scaling)
+      const sigma = (regionalVolatility / 100) * 0.05 + 0.01;
+      const gaussianNoise = this.boxMullerRandom();
+
+      // Stochastic delta: dS = S * (drift * dt + sigma * dW)
+      let priceDeltaFactor = (structuralDrift * 1.0) + (sigma * gaussianNoise);
+
+      // Apply Black Swan jump coefficients if active
+      if (blackSwanType !== 'None') {
+        if (blackSwanType === 'Cyber' && market.type === 'crypto') {
+          priceDeltaFactor -= 0.65; // 65% sudden crash on security breech
+          state.cables.push({
+            time: `${dateStr} 10:15:00`,
+            source: 'INTERPOL_CYBER',
+            message: `CYBER ATTACK SYST: Root hash collision on ${market.ticker}. 65% capital run in progress.`,
+            classification: 'EYES_ONLY'
+          });
+        } else if (blackSwanType === 'RateHike') {
+          priceDeltaFactor -= market.type === 'equity' ? 0.35 : 0.15; // sudden sovereign liquidity drain
+          state.cables.push({
+            time: `${dateStr} 14:00:00`,
+            source: 'FED_BOARD_DESK',
+            message: `RATE SHOCK: Unscheduled 150BPS prime rate hike triggers systemic bond yield rebalancing.`,
+            classification: 'SECRET'
+          });
+        } else if (blackSwanType === 'Coup' && market.ticker === blackSwanTarget) {
+          priceDeltaFactor -= 0.75; // 75% catastrophic sector collapse
+          state.cables.push({
+            time: `${dateStr} 16:20:00`,
+            source: 'APEX_DESK',
+            message: `SOCIETAL FAULT: Geopolitical hostile takeover of ${market.ticker} assembly hubs. Capital flow locked.`,
+            classification: 'TOP_SECRET'
+          });
+        } else if (blackSwanType === 'BullRun' && market.ticker === blackSwanTarget) {
+          priceDeltaFactor += 1.85; // Massive 185% parabolic lift-off
+          state.cables.push({
+            time: `${dateStr} 11:15:00`,
+            source: 'LIQUID_ALGO',
+            message: `PARABOLIC EXPANSION: Sovereign entities and shadow LPs corners float availability for ${market.ticker}.`,
+            classification: 'SECRET'
+          });
+        }
       }
+
+      // If price matched by trades, blend trade matched price with Brownian factor
+      if (tradeMatched) {
+        market.currentPrice = matchedPrice * (1 + priceDeltaFactor * 0.15);
+      } else {
+        market.currentPrice = market.currentPrice * (1 + priceDeltaFactor);
+      }
+
+      // Floor price at $0.05 representing near insolvency
+      market.currentPrice = Math.max(0.05, market.currentPrice);
 
       // Add To Graphic Candle History
       const lastHist = market.history[market.history.length - 1];
       const nextOpen = lastHist ? lastHist.close : market.currentPrice;
       const nextClose = market.currentPrice;
-      const nextHigh = Math.max(nextOpen, nextClose) + (Math.random() * (market.currentPrice * 0.01));
-      const nextLow = Math.max(0.01, Math.min(nextOpen, nextClose) - (Math.random() * (market.currentPrice * 0.01)));
+      const nextHigh = Math.max(nextOpen, nextClose) * (1 + Math.abs(this.boxMullerRandom()) * 0.008);
+      const nextLow = Math.max(0.01, Math.min(nextOpen, nextClose) * (1 - Math.abs(this.boxMullerRandom()) * 0.012));
 
       market.history.push({
         open: nextOpen,
         high: nextHigh,
         low: nextLow,
         close: nextClose,
-        volume: totalVolume > 0 ? totalVolume : Math.floor(Math.random() * 100000 + 10000),
+        volume: totalVolume > 0 ? totalVolume : Math.floor(Math.random() * 200000 + 10000),
         date: state.date
       });
 
@@ -907,7 +990,21 @@ export class GeopoliticalOmegaEngine {
       bondsValue += heldAmt; // held amount acts directly as debt principal asset
     });
 
-    // D. Short positions liabilities value
+    // D. Credit Default Swaps (CDS) contracts valuations
+    let cdsValue = 0;
+    const cdsContracts = (state.player as any).cdsContracts || [];
+    cdsContracts.forEach((contract: any) => {
+      const country = state.countries[contract.countryId];
+      if (country) {
+        // Valuation scales with sovereign debt stress vs strike stress index
+        const stressDiff = country.debtStress - contract.strikeStress;
+        // High margin leverage multiple: if sovereign stress surges, swap contract explodes in value!
+        contract.currentValue = Math.max(100000, Math.floor(contract.premiumPaid * (1 + stressDiff * 0.12)));
+        cdsValue += contract.currentValue;
+      }
+    });
+
+    // E. Short positions liabilities value
     let shortLiabilitiesValue = 0;
     Object.entries(state.shorts || {}).forEach(([ticker, data]) => {
       if (data && data.qty > 0) {
@@ -916,8 +1013,8 @@ export class GeopoliticalOmegaEngine {
       }
     });
 
-    // E. Total Net Equity Calculation
-    const netEquity = state.player.cash + stocksValue + cryptoValue + bondsValue - shortLiabilitiesValue;
+    // F. Total Net Equity Calculation factoring CDS
+    const netEquity = state.player.cash + stocksValue + cryptoValue + bondsValue + cdsValue - shortLiabilitiesValue;
     const grossPositionsValue = stocksValue + cryptoValue + shortLiabilitiesValue;
 
     // Track return volatility logs
@@ -936,11 +1033,20 @@ export class GeopoliticalOmegaEngine {
     // Update Peak high-water-mark for Drawdown checking
     state.highWaterMark = Math.max(state.highWaterMark || netEquity, netEquity);
 
-    // 4. Check Margin Call & Force-Liquidation under leverage (3x gross ceiling, 15% liquidation floor)
-    if (grossPositionsValue > 0 && state.leverageEnabled) {
-      const marginRatio = netEquity / grossPositionsValue;
+    // 4. Check Margin Call & Force-Liquidation under leverage (supports up to 100x leverage!)
+    // Liquidation floor is relative to selected leverage magnitude: ratio < (0.45 / selected leverage) or min 0.15 for standard
+    const selectedLeverage = (state.player as any).leverageSelected || 3;
+    const isLeveragedActive = state.leverageEnabled || selectedLeverage > 3;
 
-      if (marginRatio < 0.15) {
+    if (grossPositionsValue > 0 && isLeveragedActive) {
+      const marginRatio = netEquity / grossPositionsValue;
+      
+      // Compute thresholds dynamically based on chosen leverage coefficient
+      // E.g. at 100x leverage, safety margin is extremely fine (any drop below 0.6% equity triggers immediate margin call)
+      const liquidationThreshold = Math.max(0.005, 0.45 / selectedLeverage);
+      const warningThreshold = Math.max(0.01, 0.85 / selectedLeverage);
+
+      if (marginRatio < liquidationThreshold) {
         // LIQUIDATION CATACLYSM SEQUENCES TRIGGERED
         state.marginCallWarning = false;
 
@@ -976,6 +1082,9 @@ export class GeopoliticalOmegaEngine {
           }
         });
         state.shorts = {};
+        
+        // D. Force wipe out high levered CDS positions
+        (state.player as any).cdsContracts = [];
 
         state.player.cash = state.player.cash + cashRecovered - coverCost;
         // Liquidation structural fine penalty fee (12% of final cash)
@@ -987,24 +1096,24 @@ export class GeopoliticalOmegaEngine {
           tick: state.currentTick,
           date: state.date,
           eventType: 'MARKET_CRASH',
-          description: `MARGIN LIQUIDATION: Scythe Quant Algorithmic engine stop-loss hunted fund positions. Gross assets force-liquidated. High execution penalty fees applied.`,
+          description: `MARGIN CALL CATACLYSM: Failed Basel liquidity cover on ${selectedLeverage}x leverage. Scythe Quant Algorithmic engine stop-loss hunted fund positions. Gross assets force-liquidated.`,
           severity: 10
         });
 
         state.cables.push({
           time: `${defaultDateString} 16:03:00`,
           source: 'RISK_DESK_CORE',
-          message: `FORCE LIQUIDATED: Core equity collapsed below Basel risk levels (Margin was ${(marginRatio*100).toFixed(1)}%). Sponsoring portfolio closed out completely. Penalty fees applied.`,
+          message: `FORCE LIQUIDATED: Core equity collapsed below Basel risk levels (Margin was ${(marginRatio*100).toFixed(2)}% vs safety threshold ${(liquidationThreshold*100).toFixed(2)}%). Sponsoring portfolio closed out completely. Penalty fees applied.`,
           classification: 'EYES_ONLY'
         });
 
-      } else if (marginRatio < 0.25) {
+      } else if (marginRatio < warningThreshold) {
         state.marginCallWarning = true;
         if (state.currentTick % 2 === 0) {
           state.cables.push({
             time: `${defaultDateString} 11:30:00`,
             source: 'MARGIN_DESK',
-            message: `WARNING: Gross Margin ratio fell to ${(marginRatio * 100).toFixed(1)}%. Prepare for forced portfolio closures at 15% Basel floor parameters. Infuse cash immediately.`,
+            message: `URGENT WARNING: Gross Margin ratio fell to ${(marginRatio * 100).toFixed(2)}%. Leverage risk high at ${selectedLeverage}x. Prepare for forced portfolio closures at ${(liquidationThreshold * 100).toFixed(2)}% Basel floor limits. Infuse capital now.`,
             classification: 'TOP_SECRET'
           });
         }
@@ -1070,6 +1179,71 @@ export class GeopoliticalOmegaEngine {
           source: 'SEC_DESK_GLOBAL',
           message: `STAGE UNLOCKED: "INSTITUTIONAL TITAN" status granted. Capital clearing networks bypassed. Core political weight increased 200%.`,
           classification: 'EYES_ONLY'
+        });
+      }
+    }
+
+    // 6. Algorithmic AI Trading Bots Executions
+    const activeBots = (state as any).activeBots || {};
+    if (activeBots.sigmaHunter) {
+      const targetTicker = 'APLH';
+      const mkt = state.markets[targetTicker];
+      if (mkt) {
+        const listPrice = mkt.currentPrice;
+        const buyQty = 2500;
+        const netCost = listPrice * buyQty;
+        const selectedLev = (state.player as any).leverageSelected || 3;
+        const checkCash = netCost / selectedLev;
+        if (state.player.cash > checkCash && Math.random() < 0.25) {
+          state.player.cash -= netCost;
+          state.player.assets.stocks[targetTicker] = (state.player.assets.stocks[targetTicker] || 0) + buyQty;
+          state.cables.push({
+            time: `${defaultDateString} 13:00:00`,
+            source: 'SIGMA_BOT',
+            message: `AUTO BUY: Algorithmic Sigma trend triggered buy of ${buyQty} shares of ${targetTicker} at $${listPrice.toFixed(2)}.`,
+            classification: 'CONFIDENTIAL'
+          });
+        }
+      }
+    }
+
+    if (activeBots.cdsReaper) {
+      const spyCountryKeys = Object.keys(state.countries);
+      spyCountryKeys.forEach((cid) => {
+        const country = state.countries[cid];
+        const cdsContracts = (state.player as any).cdsContracts || [];
+        const alreadyHas = cdsContracts.some((c: any) => c.countryId === cid);
+        if (country && country.debtStress > 60 && !alreadyHas && state.player.cash > 25000000) {
+          const premium = 15000000;
+          state.player.cash -= premium;
+          cdsContracts.push({
+            id: Math.random().toString(),
+            countryId: cid,
+            strikeStress: country.debtStress,
+            premiumPaid: premium,
+            currentValue: premium
+          });
+          (state.player as any).cdsContracts = cdsContracts;
+
+          state.cables.push({
+            time: `${defaultDateString} 14:15:00`,
+            source: 'REAPER_BOT',
+            message: `AUTO HEDGE: Purchased CDS Sovereign protection contract on ${country.name} at strike ${country.debtStress.toFixed(1)}% stress. Premium $${premium.toLocaleString()} paid.`,
+            classification: 'CONFIDENTIAL'
+          });
+        }
+      });
+    }
+
+    if (activeBots.scytheArbitrage) {
+      if (Math.random() < 0.40) {
+        const arbProfit = Math.floor(Math.random() * 850000 + 150000);
+        state.player.cash += arbProfit;
+        state.cables.push({
+          time: `${defaultDateString} 15:45:00`,
+          source: 'SCYTHE_SYS',
+          message: `AUTO ARB: HFT front-run captured cross-bank clearing latency arbitrage. Credit +$${arbProfit.toLocaleString()} to cash vault.`,
+          classification: 'CONFIDENTIAL'
         });
       }
     }
