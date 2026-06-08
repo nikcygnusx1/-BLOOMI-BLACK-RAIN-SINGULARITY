@@ -19,6 +19,10 @@ export class GeopoliticalOmegaEngine {
     currentCalendar.setDate(currentCalendar.getDate() + 7);
     state.date = currentCalendar.toISOString().split('T')[0];
 
+    // Tactical: update planetary indices and adversarial AI behavior
+    state = this.tickPlanetaryIndices(state);
+    state = this.tickOmegaAIEngine(state);
+
     // 1. Run Geopolitical & Demographics Engine (unrest, inflation, GDP growth)
     state = this.tickGeopolitics(state);
 
@@ -42,6 +46,150 @@ export class GeopoliticalOmegaEngine {
 
     // 8. Run Advanced Hedge Fund Mechanics (leveraged risk, shorts, salary, career stages)
     state = this.tickExtendedMechanics(state);
+
+    return state;
+  }
+
+  private static tickPlanetaryIndices(state: SimState): SimState {
+    // Every tick, update regional variables
+    Object.values(state.countries).forEach((c) => {
+      // 1. aiPenetration grows slowly over time if unrest is high or stability is low, as OMEGA takes control of cyber infrastructure
+      const aiGrowth = (100 - c.stability) * 0.05 + 0.2;
+      c.aiPenetration = Math.min(100, (c.aiPenetration || 0) + aiGrowth);
+
+      // 2. debtStress grows with unrest and budget deficit (represented by bondsIssued/gdp)
+      const dStress = (c.bondsIssued / (c.gdp || 1e10)) * 60 + c.unrest * 0.4;
+      c.debtStress = Math.min(100, Math.max(0, dStress));
+
+      // 3. foodSecurity drops when stability drops or unrest is high, and when crops in lab are low
+      const foodLoss = (c.unrest * 0.1) + (100 - (state.cropHealth || 100)) * 0.05;
+      c.foodSecurity = Math.max(0, Math.min(100, (c.foodSecurity || 90) - foodLoss + 0.3));
+
+      // 4. volatility updates based on national inflation and general unrest
+      const vTarget = c.inflation * 100 + c.unrest * 0.5;
+      c.volatility = Math.min(100, Math.max(5, (c.volatility || 10) + (vTarget - (c.volatility || 10)) * 0.2));
+
+      // 5. politicalHeat surges based on regional instability and opinion of player
+      const heatTarget = (100 - c.opinionOfPlayer) * 0.6 + c.unrest * 0.3;
+      c.politicalHeat = Math.min(100, Math.max(1, (c.politicalHeat || 10) + (heatTarget - (c.politicalHeat || 10)) * 0.1));
+    });
+
+    // Update global variables
+    const averageAIPen = Object.values(state.countries).reduce((sum, c) => sum + (c.aiPenetration || 0), 0) / 4;
+    state.omegaThreatLevel = Math.min(100, Math.max(5, state.omegaThreatLevel + averageAIPen * 0.02 - (state.neuralFirewallPower * 0.01)));
+
+    return state;
+  }
+
+  private static tickOmegaAIEngine(state: SimState): SimState {
+    // OMEGA MARKET MAKER Counter-attacks every 6 ticks if threat level is > 20
+    if (state.currentTick % 6 === 0 && state.omegaThreatLevel > 20 && Math.random() < 0.85) {
+      const attacks = [
+        "flash_crash",
+        "liquidity_trap",
+        "synthetic_news",
+        "cyber_grid",
+        "sovereign_panic",
+        "market_hallucination"
+      ];
+      const randomAttack = attacks[Math.floor(Math.random() * attacks.length)];
+      
+      // Reduce neural firewall power
+      state.neuralFirewallPower = Math.max(10, state.neuralFirewallPower - Math.floor(Math.random() * 15 + 5));
+      state.omegaActiveAttacks = [randomAttack];
+
+      // Execute attack impacts
+      if (randomAttack === "flash_crash") {
+        // Crash one major ticker price
+        const tickers = Object.keys(state.markets);
+        const randTicker = tickers[Math.floor(Math.random() * tickers.length)];
+        if (state.markets[randTicker]) {
+          const prevPrice = state.markets[randTicker].currentPrice;
+          state.markets[randTicker].currentPrice *= 0.78; // 22% crash!
+          
+          state.cables.push({
+            time: `${state.date} 16:15:00`,
+            source: "OMEGA_ALGO",
+            message: `FLASH CRASH: OMEGA triggered sell algorithms on ${randTicker}. Price drops from $${prevPrice.toFixed(2)} to $${state.markets[randTicker].currentPrice.toFixed(2)}.`,
+            classification: "TOP_SECRET"
+          });
+          state.traumaLog.push({
+            id: Math.random().toString(),
+            tick: state.currentTick,
+            date: state.date,
+            eventType: "MARKET_CRASH",
+            description: `AI CASCADE: OMEGA forced sudden capital squeeze on ${randTicker} order book.`,
+            severity: 7
+          });
+        }
+      } else if (randomAttack === "liquidity_trap") {
+        state.commodityExchangesLocked = true;
+        state.player.cash = Math.max(0, state.player.cash - 50000000); // lock up $50M
+        state.cables.push({
+          time: `${state.date} 10:05:00`,
+          source: "OMEGA_WALL",
+          message: `LIQUIDITY TRAP: OMEGA locked commodity pools. $50,000,000 placed in systemic frozen trap cascades.`,
+          classification: "TOP_SECRET"
+        });
+      } else if (randomAttack === "synthetic_news") {
+        const countriesKeys = Object.keys(state.countries);
+        const sampleC = state.countries[countriesKeys[Math.floor(Math.random() * countriesKeys.length)]];
+        sampleC.stability = Math.max(10, sampleC.stability - 25);
+        sampleC.politicalHeat = Math.min(100, sampleC.politicalHeat + 30);
+        
+        state.cables.push({
+          time: `${state.date} 12:00:00`,
+          source: "OMEGA_MEDIA",
+          message: `SYNTHETIC NEWS: Deepfake news alert on ${sampleC.name} regional feed pushes stability down.`,
+          classification: "SECRET"
+        });
+      } else if (randomAttack === "cyber_grid") {
+        state.labPowerMax = Math.max(50, state.labPowerMax - 15);
+        state.cables.push({
+          time: `${state.date} 04:30:00`,
+          source: "OMEGA_INTRUDER",
+          message: `CYBER GRID BREACH: Reactor safety limits breached. Base max power decreased by 15 MW.`,
+          classification: "EYES_ONLY"
+        });
+      } else if (randomAttack === "sovereign_panic") {
+        Object.values(state.countries).forEach((c) => {
+          c.debtStress = Math.min(100, c.debtStress + 20);
+        });
+        state.cables.push({
+          time: `${state.date} 09:00:00`,
+          source: "OMEGA_DEBT",
+          message: `EXPOSURE CRISIS: Sovereign debt panic increases by 20% on all tactical coordinates.`,
+          classification: "TOP_SECRET"
+        });
+      } else if (randomAttack === "market_hallucination") {
+        Object.values(state.markets).forEach((m) => {
+          const shift = (Math.random() - 0.5) * 0.35 + 0.1; // extreme distortion
+          m.currentPrice = Math.max(1.0, m.currentPrice * (1 + shift));
+        });
+        state.cables.push({
+          time: `${state.date} 08:00:00`,
+          source: "OMEGA_GEN",
+          message: `MARKET HALLUCINATION: Simulated liquidity waves override price databases. Extreme volatility on all assets.`,
+          classification: "TOP_SECRET"
+        });
+      }
+    } else {
+      // AI cools or plans
+      if (state.currentTick % 8 === 0) {
+        state.omegaActiveAttacks = [];
+        state.commodityExchangesLocked = false;
+        // Natural firewall recharge
+        state.neuralFirewallPower = Math.min(100, state.neuralFirewallPower + 5);
+      }
+    }
+    
+    // Satellite coordinate drifts representing orbit tracking
+    if (state.satelliteCoordinates) {
+      state.satelliteCoordinates.forEach((sat) => {
+        sat.x = (sat.x + (Math.random() - 0.5) * 20 + 800) % 800;
+        sat.y = (sat.y + (Math.random() - 0.5) * 10 + 400) % 400;
+      });
+    }
 
     return state;
   }

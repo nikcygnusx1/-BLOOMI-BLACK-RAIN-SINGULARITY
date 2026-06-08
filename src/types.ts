@@ -33,6 +33,14 @@ export interface Country {
   opinionOfPlayer: number; // 0 to 100
   centralBank: CentralBank;
   capturedLobbyFraction: number;
+  
+  // Tactical planetary indexes:
+  foodSecurity: number; // 0 to 100
+  debtStress: number; // 0 to 100
+  aiPenetration: number; // 0 to 100
+  volatility: number; // 0 to 100
+  politicalHeat: number; // 0 to 100
+  resourceValue: number; // 0 to 100 (rating)
 }
 
 export interface BoardMember {
@@ -255,4 +263,16 @@ export interface SimState {
   researchTree: Record<string, ResearchNode>;
   labStaff: LaboratoryStaff[];
   researchPoints: number; // general tech levels
+
+  // --- NEW OMEGA AI & PLANETARY SECURITY STATE VARIABLES ---
+  omegaThreatLevel: number; // 0 to 100
+  neuralFirewallPower: number; // 0 to 100 (defence power)
+  hallucinationShield: number; // 0 to 100
+  activeSatellitesCount: number; // count of tactical orbital systems
+  satelliteTargetId: string; // which region is orbital scanned
+  omegaActiveAttacks: string[]; // active attacks like "synthetic_news", "liquidity_traps", "satellite_spoof", "cyber_grid"
+  commodityExchangesLocked: boolean; // if OMEGA locked down commodity tickers
+  contrabandLevel: number; // heat related to illegal sovereign weaponization
+  satelliteCoordinates: { name: string; x: number; y: number }[]; // coordinates on physical map
+  capitalFlowBeams: { fromId: string; toId: string; strength: number }[]; // capital beams coordinates for SVG canvas
 }

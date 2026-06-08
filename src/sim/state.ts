@@ -58,7 +58,13 @@ export function createInitialWorld(params: {
         liquidityInjection: 0,
         printingPressOverride: false
       },
-      capturedLobbyFraction: 0.15
+      capturedLobbyFraction: 0.15,
+      foodSecurity: 92,
+      debtStress: 28,
+      aiPenetration: 15,
+      volatility: 18,
+      politicalHeat: 20,
+      resourceValue: 85
     },
     {
       id: 'CN',
@@ -81,7 +87,13 @@ export function createInitialWorld(params: {
         liquidityInjection: 0,
         printingPressOverride: false
       },
-      capturedLobbyFraction: 0.05
+      capturedLobbyFraction: 0.05,
+      foodSecurity: 88,
+      debtStress: 42,
+      aiPenetration: 45,
+      volatility: 22,
+      politicalHeat: 35,
+      resourceValue: 95
     },
     {
       id: 'EU',
@@ -104,7 +116,13 @@ export function createInitialWorld(params: {
         liquidityInjection: 1000000,
         printingPressOverride: false
       },
-      capturedLobbyFraction: 0.08
+      capturedLobbyFraction: 0.08,
+      foodSecurity: 85,
+      debtStress: 36,
+      aiPenetration: 25,
+      volatility: 20,
+      politicalHeat: 25,
+      resourceValue: 70
     },
     {
       id: 'CH',
@@ -127,7 +145,13 @@ export function createInitialWorld(params: {
         liquidityInjection: 0,
         printingPressOverride: false
       },
-      capturedLobbyFraction: 0.12
+      capturedLobbyFraction: 0.12,
+      foodSecurity: 98,
+      debtStress: 10,
+      aiPenetration: 12,
+      volatility: 12,
+      politicalHeat: 5,
+      resourceValue: 50
     }
   ];
 
@@ -369,7 +393,26 @@ export function createInitialWorld(params: {
     labStructures,
     researchTree,
     labStaff,
-    researchPoints: 50
+    researchPoints: 50,
+
+    // --- NEW OMEGA AI & PLANETARY SECURITY STATE VARIABLES ---
+    omegaThreatLevel: 15,
+    neuralFirewallPower: 80,
+    hallucinationShield: 100,
+    activeSatellitesCount: 2,
+    satelliteTargetId: 'US',
+    omegaActiveAttacks: [],
+    commodityExchangesLocked: false,
+    contrabandLevel: 10,
+    satelliteCoordinates: [
+      { name: "ORBITAL-STATION-A", x: 210, y: 150 },
+      { name: "ORBITAL-STATION-B", x: 490, y: 310 }
+    ],
+    capitalFlowBeams: [
+      { fromId: "US", toId: "EU", strength: 3 },
+      { fromId: "CN", toId: "US", strength: 5 },
+      { fromId: "EU", toId: "CN", strength: 2 }
+    ]
   };
 }
 
@@ -458,6 +501,44 @@ export function loadSimState(saveName: string = 'omega_autosave'): SimState | nu
       if (loaded.weatherTicksRemaining === undefined) loaded.weatherTicksRemaining = 0;
       if (loaded.floodLevel === undefined) loaded.floodLevel = 0;
       if (loaded.researchPoints === undefined) loaded.researchPoints = 50;
+
+      // Ensure OMEGA parameters load safely
+      if (loaded.omegaThreatLevel === undefined) loaded.omegaThreatLevel = 15;
+      if (loaded.neuralFirewallPower === undefined) loaded.neuralFirewallPower = 80;
+      if (loaded.hallucinationShield === undefined) loaded.hallucinationShield = 100;
+      if (loaded.activeSatellitesCount === undefined) loaded.activeSatellitesCount = 2;
+      if (loaded.satelliteTargetId === undefined) loaded.satelliteTargetId = 'US';
+      if (loaded.omegaActiveAttacks === undefined) loaded.omegaActiveAttacks = [];
+      if (loaded.commodityExchangesLocked === undefined) loaded.commodityExchangesLocked = false;
+      if (loaded.contrabandLevel === undefined) loaded.contrabandLevel = 10;
+      if (!loaded.satelliteCoordinates) {
+        loaded.satelliteCoordinates = [
+          { name: "ORBITAL-STATION-A", x: 210, y: 150 },
+          { name: "ORBITAL-STATION-B", x: 490, y: 310 }
+        ];
+      }
+      if (!loaded.capitalFlowBeams) {
+        loaded.capitalFlowBeams = [
+          { fromId: "US", toId: "EU", strength: 3 },
+          { fromId: "CN", toId: "US", strength: 5 },
+          { fromId: "EU", toId: "CN", strength: 2 }
+        ];
+      }
+
+      if (!loaded.countries || !loaded.countries['US'] || loaded.countries['US'].foodSecurity === undefined) {
+        // Enforce the fields on countries if loaded old save
+        const defaults: Record<string, any> = {
+          US: { foodSecurity: 92, debtStress: 28, aiPenetration: 15, volatility: 18, politicalHeat: 20, resourceValue: 85 },
+          CN: { foodSecurity: 88, debtStress: 42, aiPenetration: 45, volatility: 22, politicalHeat: 35, resourceValue: 95 },
+          EU: { foodSecurity: 85, debtStress: 36, aiPenetration: 25, volatility: 20, politicalHeat: 25, resourceValue: 70 },
+          CH: { foodSecurity: 98, debtStress: 10, aiPenetration: 12, volatility: 12, politicalHeat: 5, resourceValue: 50 },
+        };
+        Object.keys(defaults).forEach((id) => {
+          if (loaded.countries && loaded.countries[id]) {
+            Object.assign(loaded.countries[id], defaults[id]);
+          }
+        });
+      }
 
       if (!loaded.labStructures) {
         loaded.labStructures = [

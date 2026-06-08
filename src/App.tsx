@@ -42,8 +42,9 @@ import {
 
 export default function App() {
   const [gameState, setGameState] = useState<SimState | null>(null);
-  const [activeTab, setActiveTab] = useState<'LAB_VIEW' | 'RESEARCH' | 'STAFF' | 'HELP' | 'TRADING' | 'CORPORATE' | 'MACRO' | 'INFLUENCE' | 'DYNASTY' | 'INTELLIGENCE' | 'OPERATION' | 'MARKETS'>('LAB_VIEW');
+  const [activeTab, setActiveTab] = useState<'WORLD' | 'LAB_VIEW' | 'RESEARCH' | 'STAFF' | 'HELP' | 'TRADING' | 'CORPORATE' | 'MACRO' | 'INFLUENCE' | 'DYNASTY' | 'INTELLIGENCE' | 'OPERATION' | 'MARKETS' | 'AI_WAR' | 'SATELLITES' | 'DEBT' | 'SUPPLY_CHAINS'>('WORLD');
   const [selectedTicker, setSelectedTicker] = useState('APLH');
+  const [selectedRegionId, setSelectedRegionId] = useState<string>('US');
   
   // CLI State
   const [cliInput, setCliInput] = useState('');
@@ -527,56 +528,67 @@ export default function App() {
     logToTerminal(`BBG> ${rawString}`);
     playSyntheticSound('tick');
 
-    // Help commands
+    // Help guides
     if (cmd === 'HELP' || cmd === 'HELP <GO>' || cmd === '/HELP' || cmd === 'F1' || cmd === 'F1 <GO>') {
       setActiveTab('HELP');
-      logToTerminal('WORKSTATUS: LOADED F1 [HELP] USER GUIDE.');
+      logToTerminal('WORKSTATUS: LOADED F1 [HELP] SPECIFICATIONS MANUAL.');
       return;
     }
 
-    // Tab navigation keys
-    if (cmd === 'F2' || cmd === 'F2 <GO>' || cmd === 'LAB' || cmd === 'LAB <GO>') {
-      setActiveTab('LAB_VIEW');
+    // New Milspec Planetary Desk Shortcodes
+    if (cmd === 'F2' || cmd === 'F2 <GO>' || cmd === 'WORLD' || cmd === 'WORLD <GO>') {
+      setActiveTab('WORLD');
+      logToTerminal('COMMAND DESK: LOADED F2 [PLN_WORLD] PLANETARY TACTICAL SCREEN.');
       return;
     }
-    if (cmd === 'F3' || cmd === 'F3 <GO>' || cmd === 'RESEARCH' || cmd === 'RESEARCH <GO>') {
-      setActiveTab('RESEARCH');
-      return;
-    }
-    if (cmd === 'F4' || cmd === 'F4 <GO>' || cmd === 'STAFF' || cmd === 'STAFF <GO>') {
-      setActiveTab('STAFF');
-      return;
-    }
-    if (cmd === 'F5' || cmd === 'F5 <GO>' || cmd === 'EQUITY' || cmd === 'EQUITY <GO>' || cmd === 'TRADING' || cmd === 'TRADE') {
-      setActiveTab('TRADING');
-      return;
-    }
-    if (cmd === 'F6' || cmd === 'F6 <GO>' || cmd === 'CORP' || cmd === 'CORP <GO>') {
-      setActiveTab('CORPORATE');
-      return;
-    }
-    if (cmd === 'F7' || cmd === 'F7 <GO>' || cmd === 'GOV' || cmd === 'GOV <GO>' || cmd === 'GOVT' || cmd === 'GOVT <GO>') {
-      setActiveTab('MACRO');
-      return;
-    }
-    if (cmd === 'F8' || cmd === 'F8 <GO>' || cmd === 'LOBBY' || cmd === 'LOBBY <GO>' || cmd === 'INFLUENCE' || cmd === 'INFLUENCE <GO>') {
-      setActiveTab('INFLUENCE');
-      return;
-    }
-    if (cmd === 'F9' || cmd === 'F9 <GO>' || cmd === 'FOUND' || cmd === 'FOUND <GO>' || cmd === 'DYNASTY' || cmd === 'DYNASTY <GO>') {
-      setActiveTab('DYNASTY');
-      return;
-    }
-    if (cmd === 'F10' || cmd === 'F10 <GO>' || cmd === 'INTEL' || cmd === 'INTEL <GO>') {
-      setActiveTab('INTELLIGENCE');
-      return;
-    }
-    if (cmd === 'F11' || cmd === 'F11 <GO>' || cmd === 'OPER' || cmd === 'OPER <GO>' || cmd === 'OPERATION' || cmd === 'OPERATION <GO>') {
-      setActiveTab('OPERATION');
-      return;
-    }
-    if (cmd === 'F12' || cmd === 'F12 <GO>' || cmd === 'MKT' || cmd === 'MKT <GO>' || cmd === 'MARKET' || cmd === 'MARKET <GO>' || cmd === 'MARKETS' || cmd === 'MARKETS <GO>') {
+    if (cmd === 'F3' || cmd === 'F3 <GO>' || cmd === 'MARKET' || cmd === 'MARKETS' || cmd === 'MARKETS <GO>') {
       setActiveTab('MARKETS');
+      logToTerminal('COMMAND DESK: LOADED F3 [EQTY_MKT] GLOBAL MARKETS INDEX.');
+      return;
+    }
+    if (cmd === 'F4' || cmd === 'F4 <GO>' || cmd === 'RESEARCH' || cmd === 'RESEARCH <GO>') {
+      setActiveTab('RESEARCH');
+      logToTerminal('COMMAND DESK: LOADED F4 [RESRCH] UPGRADE PARADIGMS.');
+      return;
+    }
+    if (cmd === 'F5' || cmd === 'F5 <GO>' || cmd === 'AI_WAR' || cmd === 'AI_WAR <GO>') {
+      setActiveTab('AI_WAR');
+      logToTerminal('COMMAND DESK: LOADED F5 [AI_WAR] OMEGA COUNTER intelligence HUB.');
+      return;
+    }
+    if (cmd === 'F6' || cmd === 'F6 <GO>' || cmd === 'SATELLITES' || cmd === 'SATELLITES <GO>') {
+      setActiveTab('SATELLITES');
+      logToTerminal('COMMAND DESK: LOADED F6 [SAT_ORBIT] TELESCOPIC ORBITS ROUTING.');
+      return;
+    }
+    if (cmd === 'F7' || cmd === 'F7 <GO>' || cmd === 'DEBT' || cmd === 'DEBT <GO>') {
+      setActiveTab('DEBT');
+      logToTerminal('COMMAND DESK: LOADED F7 [DEBT_CONT] SOVEREIGN CDS STRESS INDEX.');
+      return;
+    }
+    if (cmd === 'F8' || cmd === 'F8 <GO>' || cmd === 'SUPPLY' || cmd === 'SUPPLY_CHAINS' || cmd === 'SUPPLY_CHAINS <GO>') {
+      setActiveTab('SUPPLY_CHAINS');
+      logToTerminal('COMMAND DESK: LOADED F8 [SUP_CHAIN] COMMODITIES LITHIUM LOGISTICS.');
+      return;
+    }
+    if (cmd === 'F9' || cmd === 'F9 <GO>' || cmd === 'STAFF' || cmd === 'STAFF <GO>') {
+      setActiveTab('STAFF');
+      logToTerminal('COMMAND DESK: LOADED F9 [FIELD_OPS] FIELD OPERATIVES NEURAL MATRIX.');
+      return;
+    }
+    if (cmd === 'F10' || cmd === 'F10 <GO>' || cmd === 'DYNASTY' || cmd === 'DYNASTY <GO>') {
+      setActiveTab('DYNASTY');
+      logToTerminal('COMMAND DESK: LOADED F10 [DYNA_GENE] DYNASTIC CELL OVERRIDES.');
+      return;
+    }
+    if (cmd === 'F11' || cmd === 'F11 <GO>' || cmd === 'INTEL' || cmd === 'INTEL <GO>') {
+      setActiveTab('INTELLIGENCE');
+      logToTerminal('COMMAND DESK: LOADED F11 [INTEL] DISINFO NARRATIVE WARFARE.');
+      return;
+    }
+    if (cmd === 'F12' || cmd === 'F12 <GO>' || cmd === 'EQUITY' || cmd === 'TRADING' || cmd === 'TRADE') {
+      setActiveTab('TRADING');
+      logToTerminal('COMMAND DESK: LOADED F12 [TRADING] DERIVATIVE ORDER BOOKS BOOK.');
       return;
     }
 
@@ -837,23 +849,26 @@ export default function App() {
         <div className="w-[320px] border-r border-[#1e2535] bg-[#0a0c0f] flex flex-col overflow-hidden shrink-0 z-10 p-2 gap-2.5">
           
           {/* Section A: Vertical Visual Tabs Lists */}
-          <div className="bg-[#0f1318] border border-[#1e2535] p-2 rounded-terminal flex flex-col gap-1.5">
-            <h3 className="text-slate-400 font-display font-bold uppercase text-[9px] tracking-wider mb-0.5">PLATFORM CORE SECTIONS</h3>
+          <div className="bg-[#0f1318] border border-[#1e2535] p-2 rounded-terminal flex flex-col gap-1.5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)]">
+            <h3 className="text-[#00c2ff]/80 font-display font-bold uppercase text-[9px] tracking-wider mb-1 flex justify-between items-center px-1">
+              <span>WAR ROOM COMMAND CHANNELS</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+            </h3>
             
-            <div className="grid grid-cols-2 gap-1.5 font-terminal">
+            <div className="grid grid-cols-2 gap-1 font-terminal">
               {[
-                { id: 'HELP' as const, key: 'F1', label: 'HELP_DESK', icon: Sparkles },
-                { id: 'LAB_VIEW' as const, key: 'F2', label: 'LAB_MAP', icon: Cpu },
-                { id: 'RESEARCH' as const, key: 'F3', label: 'RESEARCH', icon: FlaskConical },
-                { id: 'STAFF' as const, key: 'F4', label: 'STAFF_DIV', icon: Users },
-                { id: 'TRADING' as const, key: 'F5', label: 'EQTY_TRADE', icon: TrendingUp },
-                { id: 'CORPORATE' as const, key: 'F6', label: 'CORP_OP', icon: Briefcase },
-                { id: 'MACRO' as const, key: 'F7', label: 'GOVT_BNDS', icon: Globe },
-                { id: 'INFLUENCE' as const, key: 'F8', label: 'SHDW_LOBBY', icon: Network },
-                { id: 'DYNASTY' as const, key: 'F9', label: 'DYNA_GENE', icon: Award },
-                { id: 'INTELLIGENCE' as const, key: 'F10', label: 'INTEL_DIV', icon: Skull },
-                { id: 'OPERATION' as const, key: 'F11', label: 'FUND_OPS', icon: PieChart },
-                { id: 'MARKETS' as const, key: 'F12', label: 'MKT_GRID', icon: Layers }
+                { id: 'WORLD' as const, key: 'F2', label: 'PLN_WORLD', icon: Globe },
+                { id: 'MARKETS' as const, key: 'F3', label: 'MKT_GRID', icon: Layers },
+                { id: 'RESEARCH' as const, key: 'F4', label: 'RESRCH_SYS', icon: FlaskConical },
+                { id: 'AI_WAR' as const, key: 'F5', label: 'AI_COUNTER', icon: ShieldAlert },
+                { id: 'SATELLITES' as const, key: 'F6', label: 'SAT_ORBIT', icon: Radio },
+                { id: 'DEBT' as const, key: 'F7', label: 'DEBT_CONG', icon: Activity },
+                { id: 'SUPPLY_CHAINS' as const, key: 'F8', label: 'SUP_CHAIN', icon: Network },
+                { id: 'STAFF' as const, key: 'F9', label: 'FIELD_OPS', icon: Users },
+                { id: 'DYNASTY' as const, key: 'F10', label: 'DYNA_GENE', icon: Award },
+                { id: 'INTELLIGENCE' as const, key: 'F11', label: 'INTEL_DIV', icon: Skull },
+                { id: 'TRADING' as const, key: 'F12', label: 'DER_DESK', icon: TrendingUp },
+                { id: 'HELP' as const, key: 'F1', label: 'HELP_DESK', icon: Sparkles }
               ].map((tab) => {
                 const isActive = activeTab === tab.id;
                 const Icon = tab.icon;
@@ -863,15 +878,15 @@ export default function App() {
                     onClick={() => {
                       executeUnifiedCommand(`${tab.key} <GO>`);
                     }}
-                    className={`h-[30px] px-2 flex items-center gap-1.5 rounded-terminal font-bold tracking-tight cursor-pointer transition-all border ${
+                    className={`h-[28px] px-1.5 flex items-center gap-1 rounded-terminal font-bold tracking-tight cursor-pointer transition-all border ${
                       isActive 
-                        ? 'bg-gradient-to-r from-[#00c2ff]/30 to-[#0066ff]/10 text-white border-[#00c2ff]' 
-                        : 'bg-[#141920] border-[#1e2535] text-slate-400 hover:text-white hover:border-[#2a3550]'
+                        ? 'bg-gradient-to-r from-red-950/40 via-[#00c2ff]/30 to-[#0066ff]/10 text-white border-[#00c2ff]' 
+                        : 'bg-[#141920] border-[#1e2535] text-slate-400 hover:text-slate-100 hover:bg-[#1a212b]'
                     }`}
                   >
-                    <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#00c2ff]' : 'text-slate-500'}`} />
-                    <span className="text-[9.5px] uppercase font-mono">
-                      {tab.key} {tab.label.split('_')[0]}
+                    <Icon className={`w-3 h-3 ${isActive ? 'text-[#00c2ff]' : 'text-slate-500'}`} />
+                    <span className="text-[8.5px] uppercase font-mono truncate">
+                      {tab.key} {tab.label}
                     </span>
                   </button>
                 );
@@ -959,13 +974,609 @@ export default function App() {
         <div className="flex-1 flex flex-col overflow-hidden z-20 border-r border-[#1e2535] bg-[#0a0c0f]">
           {/* Tab contents visual container */}
           <div className="flex-1 overflow-hidden bg-[#0a0c0f] p-2">
-            {activeTab === 'LAB_VIEW' && (
-              <LabMapView
-                state={gameState!}
-                onModifyState={onModifySomaticState}
-                onLogTerminal={logToTerminal}
-                playSyntheticSound={playSyntheticSound}
-              />
+            {activeTab === 'WORLD' && (
+              <div className="flex flex-col h-full overflow-hidden select-none font-mono">
+                {/* Tactical Title Header */}
+                <div className="flex justify-between items-center bg-[#0f1318] border border-[#1e2535] p-2 rounded-terminal mb-1.5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 bg-[#ff3b5c] animate-pulse rounded-full border border-black" />
+                    <span className="text-[10px] text-white font-bold uppercase tracking-wider">PLANETARY CODES: COORDINATES DESK</span>
+                  </div>
+                  <span className="text-[9px] text-[#00c2ff]/80 font-bold">OMEGA NET INFILTRATION // TACTICAL MAP VECTORS</span>
+                </div>
+
+                {/* The Master SVG map view and inspect overlays */}
+                <div className="flex-1 min-h-[220px] bg-[#07090d] border border-[#1e2535] rounded-terminal overflow-hidden relative flex flex-col justify-between">
+                  {/* Planetary grid background with tactical coordinates */}
+                  <div className="absolute inset-x-2 top-2 flex justify-between text-[8px] text-slate-500 font-terminal pointer-events-none">
+                    <span>SECTOR_0.1 // RANGE_CAP: [280-920KM]</span>
+                    <span>BEARING_DIR: 88.01.12</span>
+                  </div>
+
+                  <svg viewBox="0 0 800 380" className="w-full h-full text-slate-800 z-10 flex-1">
+                    <defs>
+                      <pattern id="tacticalGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#121820" strokeWidth="0.8" />
+                      </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#tacticalGrid)" />
+
+                    {/* Orbit track trajectories */}
+                    <ellipse cx="400" cy="190" rx="360" ry="110" className="stroke-slate-800/60 fill-none stroke-1" style={{ strokeDasharray: '4 4' }} />
+                    <ellipse cx="400" cy="190" rx="280" ry="150" className="stroke-[#00c2ff]/10 fill-none stroke-1" />
+
+                    {/* Lines of Equities Flow (USA to EU, EU to CH, CN to USA) */}
+                    <path d="M 220 150 Q 330 80 440 140" fill="none" className="stroke-[#00c2ff]/35 stroke-1" style={{ strokeDasharray: '5, 5' }}>
+                      <animate attributeName="stroke-dashoffset" values="50;0" dur="4s" repeatCount="indefinite" />
+                    </path>
+                    <path d="M 600 170 Q 420 280 220 150" fill="none" className="stroke-rose-900/40 stroke-1" style={{ strokeDasharray: '6, 6' }}>
+                      <animate attributeName="stroke-dashoffset" values="0;50" dur="5s" repeatCount="indefinite" />
+                    </path>
+
+                    {/* Continents custom visual polygons (minimal bento blueprint) */}
+                    <g transform="translate(140, 110)" className="cursor-pointer" onClick={() => { setSelectedRegionId('US'); playSyntheticSound('tick'); }}>
+                      <polygon points="10,20 80,10 140,40 160,80 120,110 50,115" className={`fill-none stroke-2 transition-colors ${selectedRegionId === 'US' ? 'stroke-[#00ff88] fill-[#00ff88]/5' : 'stroke-slate-700/60 hover:stroke-slate-400'}`} />
+                      <text x="45" y="72" className={`text-[9.5px] font-bold ${selectedRegionId === 'US' ? 'fill-[#00ff88]' : 'fill-slate-500'}`}>US_HQ_VAULT</text>
+                    </g>
+
+                    <g transform="translate(400, 90)" className="cursor-pointer" onClick={() => { setSelectedRegionId('EU'); playSyntheticSound('tick'); }}>
+                      <polygon points="20,10 90,5 110,60 80,95 25,85" className={`fill-none stroke-2 transition-colors ${selectedRegionId === 'EU' ? 'stroke-[#00ff88] fill-[#00ff88]/5' : 'stroke-slate-700/60 hover:stroke-slate-400'}`} />
+                      <text x="30" y="55" className={`text-[9.5px] font-bold ${selectedRegionId === 'EU' ? 'fill-[#00ff88]' : 'fill-slate-500'}`}>EU_CREDIT</text>
+                    </g>
+
+                    <g transform="translate(540, 120)" className="cursor-pointer" onClick={() => { setSelectedRegionId('CN'); playSyntheticSound('tick'); }}>
+                      <polygon points="30,10 120,5 140,50 110,90 60,110 15,65" className={`fill-none stroke-2 transition-colors ${selectedRegionId === 'CN' ? 'stroke-[#00ff88] fill-[#00ff88]/5' : 'stroke-slate-700/60 hover:stroke-slate-400'}`} />
+                      <text x="40" y="62" className={`text-[9.5px] font-bold ${selectedRegionId === 'CN' ? 'fill-[#00ff88]' : 'fill-slate-500'}`}>CN_CORRIDOR</text>
+                    </g>
+
+                    <g transform="translate(425, 175)" className="cursor-pointer" onClick={() => { setSelectedRegionId('CH'); playSyntheticSound('tick'); }}>
+                      <polygon points="5,5 35,5 35,25 5,25" className={`fill-none stroke-2 transition-colors ${selectedRegionId === 'CH' ? 'stroke-[#00ff88] fill-[#00ff88]/10' : 'stroke-emerald-600/40 hover:stroke-emerald-400'}`} />
+                      <text x="6" y="19" className="text-[7px] font-bold fill-emerald-400 font-terminal">CH_SEC</text>
+                    </g>
+
+                    {/* Pulsing red OMEGA hazard radar circles around high AI zones */}
+                    {Object.values(gameState.countries).map((c: any) => {
+                      if (!c.aiPenetration || c.aiPenetration < 15) return null;
+                      let cx = 220, cy = 180;
+                      if (c.id === 'US') { cx = 220; cy = 180; }
+                      else if (c.id === 'CN') { cx = 620; cy = 185; }
+                      else if (c.id === 'EU') { cx = 455; cy = 150; }
+                      else if (c.id === 'CH') { cx = 445; cy = 190; }
+
+                      const pulseRadius = 15 + (c.aiPenetration * 0.45);
+                      return (
+                        <g key={c.id}>
+                          <circle cx={cx} cy={cy} r={pulseRadius} className="fill-none stroke-red-650 stroke-1 opacity-40" />
+                          <circle cx={cx} cy={cy} r={pulseRadius + 8} className="fill-none stroke-red-500 stroke-1 opacity-25 animate-pulse" />
+                        </g>
+                      );
+                    })}
+
+                    {/* Satellite trajectories sliding dot nodes */}
+                    {gameState.satelliteCoordinates && gameState.satelliteCoordinates.map((sat: any) => (
+                      <g key={sat.id}>
+                        <circle cx={sat.x} cy={sat.y} r={4.5} className="fill-yellow-400 stroke-black stroke-1 animate-pulse" />
+                        <line x1={sat.x} y1={sat.y} x2={sat.x} y2={sat.y + 400} className="stroke-yellow-450/20 stroke-1" style={{ strokeDasharray: '2, 4' }} />
+                        <text x={sat.x + 8} y={sat.y - 1} className="text-[7.5px] fill-yellow-400/90 font-mono italic font-bold">{sat.name}</text>
+                      </g>
+                    ))}
+
+                    {/* Selected region target hud visual coordinates */}
+                    {(() => {
+                      let cx = 220, cy = 180;
+                      if (selectedRegionId === 'US') { cx = 220; cy = 180; }
+                      else if (selectedRegionId === 'CN') { cx = 620; cy = 185; }
+                      else if (selectedRegionId === 'EU') { cx = 455; cy = 150; }
+                      else if (selectedRegionId === 'CH') { cx = 445; cy = 190; }
+
+                      return (
+                        <g>
+                          <circle cx={cx} cy={cy} r="32" className="stroke-[#00ff88] fill-none stroke-1 stroke-dashed animate-pulse" style={{ strokeDasharray: '3 3' }} />
+                          <line x1={cx} y1={cy - 45} x2={cx} y2={cy + 45} className="stroke-[#00ff88]/30 stroke-0.5" />
+                          <line x1={cx - 45} y1={cy} x2={cx + 45} y2={cy} className="stroke-[#00ff88]/30 stroke-0.5" />
+                        </g>
+                      );
+                    })()}
+                  </svg>
+
+                  {/* Satellite scan tracker overlay panel */}
+                  <div className="absolute right-2 top-8 w-44 bg-[#0a0c0f]/85 border border-[#1e2535] p-1.5 rounded-terminal text-[8px] font-terminal leading-snug z-20 text-yellow-500">
+                    <span className="font-bold border-b border-yellow-500/30 block pb-0.5 mb-1 text-yellow-400">// ACTIVE SAT SENSOR ARRAY</span>
+                    <div className="space-y-0.5">
+                      {gameState.satelliteCoordinates && gameState.satelliteCoordinates.map((sat: any) => (
+                        <div key={sat.id} className="flex justify-between font-mono">
+                          <span>{sat.name}</span>
+                          <span className="font-bold text-yellow-300">X:{sat.x.toFixed(0)} Y:{sat.y.toFixed(0)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* BOTTOM REGIONAL SPECIAL ACTION INSTRUMENTS BOARD */}
+                {(() => {
+                  const selC: any = gameState.countries[selectedRegionId];
+                  if (!selC) return null;
+                  
+                  // Action helpers
+                  const handleDeployFirewall = () => {
+                    setGameState((prev) => {
+                      if (!prev) return null;
+                      if (prev.player.cash < 100000000) {
+                        logToTerminal('REJECTED: Insufficient cash ($100M required) to deploy cyber defense firewalls.', true);
+                        return prev;
+                      }
+                      const next = { ...prev };
+                      next.player.cash -= 100000000;
+                      next.neuralFirewallPower = Math.min(100, next.neuralFirewallPower + 12);
+                      const t = next.countries[selectedRegionId];
+                      if (t) {
+                        t.aiPenetration = Math.max(0, t.aiPenetration - 25);
+                        t.stability = Math.min(100, t.stability + 8);
+                        logToTerminal(`FIREWALL INSTALLED: Secured sub-network on coordinates ${selectedRegionId}. Threat integrity mitigated.`);
+                        playSyntheticSound('profit');
+                      }
+                      return next;
+                    });
+                  };
+
+                  const handleBailout = () => {
+                    setGameState((prev) => {
+                      if (!prev) return null;
+                      if (prev.player.cash < 1500000000) {
+                        logToTerminal('REJECTED: Insufficient cash ($1.5B required) for regional debt bails.', true);
+                        return prev;
+                      }
+                      const next = { ...prev };
+                      next.player.cash -= 1500000000;
+                      const t = next.countries[selectedRegionId];
+                      if (t) {
+                        t.debtStress = Math.max(0, t.debtStress - 30);
+                        t.opinionOfPlayer = Math.min(100, t.opinionOfPlayer + 20);
+                        t.bondsIssued += 1500000000;
+                        logToTerminal(`BAILOUT APPROVED: Capital injected into ${t.name} state treasury. Bond yields stabilized.`);
+                        playSyntheticSound('profit');
+                      }
+                      return next;
+                    });
+                  };
+
+                  const handleCornerCommodity = () => {
+                    setGameState((prev) => {
+                      if (!prev) return null;
+                      if (prev.player.cash < 50000000) {
+                        logToTerminal('REJECTED: Insufficient cash reserves ($50M required).', true);
+                        return prev;
+                      }
+                      const next = { ...prev };
+                      next.player.cash -= 50000000;
+                      const t = next.countries[selectedRegionId];
+                      if (t) {
+                        t.resourceValue = Math.min(100, t.resourceValue + 12);
+                        t.volatility = Math.min(100, t.volatility + 10);
+                        Object.values(next.markets).forEach((m: any) => {
+                          m.currentPrice *= 1.04;
+                        });
+                        logToTerminal(`CORNER SECTOR: Hoarded physical assets in ${t.name} sector. Commodity future indexes up 4%.`);
+                        playSyntheticSound('order');
+                      }
+                      return next;
+                    });
+                  };
+
+                  const handleSanction = () => {
+                    setGameState((prev) => {
+                      if (!prev) return null;
+                      if (prev.player.cash < 200000000) {
+                        logToTerminal('REJECTED: Insufficient cash ($200M required).', true);
+                        return prev;
+                      }
+                      const next = { ...prev };
+                      next.player.cash -= 200000000;
+                      const t = next.countries[selectedRegionId];
+                      if (t) {
+                        t.stability = Math.max(10, t.stability - 20);
+                        t.unrest = Math.min(100, t.unrest + 15);
+                        t.debtStress = Math.min(100, t.debtStress + 15);
+                        logToTerminal(`EMBARGO EXECUTED: Enforced capital blockade on ${t.name} exchanges. Local unrest increased.`);
+                        playSyntheticSound('warning');
+                      }
+                      return next;
+                    });
+                  };
+
+                  return (
+                    <div className="bg-[#0f1318] border border-[#1e2535] rounded-terminal p-2 mt-1.5 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                      {/* Left: Region Inspect descriptors */}
+                      <div className="bg-[#141920] border border-[#1e2535] p-2 rounded-terminal flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-center border-b border-slate-900 pb-1 mb-1.5 font-bold uppercase text-[10px]">
+                            <span className="text-[#00ff88]">{selC.name} COORDINATES_COORD</span>
+                            <span className="text-slate-400">ID: {selC.id}</span>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[9.5px]">
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">GDP GROWTH RATE:</span>
+                              <span className="text-white">{(selC.gdpGrowth * 100).toFixed(1)}%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">SOVEREIGN DEBT STRESS:</span>
+                              <span className="text-white">{selC.debtStress.toFixed(1)}%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">OMEGA NET AI INFECTION:</span>
+                              <span className="text-red-400 font-bold">{selC.aiPenetration.toFixed(1)}%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">FOOD SECURITY INDEX:</span>
+                              <span className="text-white">{selC.foodSecurity.toFixed(0)}%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">ASSET LIQUID VOL:</span>
+                              <span className="text-white">{selC.volatility.toFixed(0)}%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">POLITICAL HEATWAVE:</span>
+                              <span className="text-white">{selC.politicalHeat.toFixed(0)}%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-1 border-t border-slate-900/40 pt-1 flex justify-between items-center text-[8.5px] font-terminal italic text-slate-500">
+                          <span>REG LOBBY FRAC: {(selC.capturedLobbyFraction * 100).toFixed(1)}%</span>
+                          <span>CENTRAL RATE: {(selC.interestRate * 100).toFixed(1)}%</span>
+                        </div>
+                      </div>
+
+                      {/* Right: Actions */}
+                      <div className="flex flex-col gap-1.5 justify-center">
+                        <div className="grid grid-cols-2 gap-1 font-terminal">
+                          <button 
+                            onClick={handleDeployFirewall}
+                            className="bg-red-950/30 border border-red-700/50 hover:bg-red-950 text-red-400 font-bold p-1 rounded-terminal uppercase tracking-tight cursor-pointer text-center text-[9px]"
+                          >
+                            DEPLOY DEFENSE FIREWALL <span className="block text-[8px] opacity-75 font-normal">COST: $100M</span>
+                          </button>
+                          <button 
+                            onClick={handleBailout}
+                            className="bg-emerald-950/30 border border-emerald-700/50 hover:bg-emerald-950 text-emerald-400 font-bold p-1 rounded-terminal uppercase tracking-tight cursor-pointer text-center text-[9px]"
+                          >
+                            SOVEREIGN BAILOUT <span className="block text-[8px] opacity-75 font-normal">COST: $1.5B</span>
+                          </button>
+                          <button 
+                            onClick={handleCornerCommodity}
+                            className="bg-[#141920] border border-slate-705 hover:bg-[#1f2631] text-[#00c2ff] font-bold p-1 rounded-terminal uppercase tracking-tight cursor-pointer text-center text-[9px]"
+                          >
+                            CORNER PHYSICAL WEALTH <span className="block text-[8px] opacity-75 font-normal">COST: $50M</span>
+                          </button>
+                          <button 
+                            onClick={handleSanction}
+                            className="bg-[#141920] border border-rose-900/40 hover:bg-rose-950/30 text-[#ff3b5c] font-bold p-1 rounded-terminal uppercase tracking-tight cursor-pointer text-center text-[9px]"
+                          >
+                            EMBARGO VECTORS LOCK <span className="block text-[8px] opacity-75 font-normal">COST: $200M</span>
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+                  );
+                })()}
+
+              </div>
+            )}
+
+            {activeTab === 'AI_WAR' && (
+              <div className="flex flex-col h-full overflow-hidden select-none font-mono">
+                <div className="flex justify-between items-center bg-[#0f1318] border border-[#1e2535] p-2 rounded-terminal mb-1.5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)]">
+                  <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider">// OMEGA INTRUSION TRACE CONSOLE</span>
+                  <span className="text-[9px] text-[#00c2ff] font-bold">FIREWALL INTEGRITY DESK</span>
+                </div>
+
+                <div className="flex-1 bg-[#07090d] border border-[#1e2535] p-3 rounded-terminal flex flex-col md:flex-row gap-3 overflow-y-auto">
+                  {/* Neural intrusion topology map */}
+                  <div className="flex-1 min-h-[180px] bg-[#0a0c0f] border border-[#1e2535] rounded-terminal p-2 flex flex-col justify-between">
+                    <span className="text-[8px] opacity-60 text-slate-400 uppercase font-bold">// CYBER INTRUSION TOPOLOGY NETWORK</span>
+                    
+                    <svg viewBox="0 0 400 220" className="w-full text-slate-800 flex-1">
+                      <path d="M 50 50 Q 150 110 200 110" className="stroke-red-650 fill-none stroke-1 animate-pulse" />
+                      <path d="M 350 50 Q 250 110 200 110" className="stroke-red-650 fill-none stroke-1 border-dashed" />
+                      <path d="M 50 180 Q 150 110 200 110" className="stroke-red-500 fill-none stroke-1" />
+                      <line x1="350" y1="180" x2="200" y2="110" className="stroke-orange-500/20 stroke-1" />
+
+                      <circle cx="200" cy="110" r="14" className="fill-red-950 stroke-red-500 stroke-2 animate-pulse" />
+                      <text x="180" y="85" className="text-[8px] fill-red-500 font-bold tracking-wider">OMEGA_CORE</text>
+
+                      <circle cx="50" cy="50" r="8" className="fill-slate-900 stroke-slate-500 stroke-1" />
+                      <text x="35" y="38" className="text-[7.5px] fill-slate-300 font-bold">US-NET</text>
+
+                      <circle cx="350" cy="50" r="8" className="fill-slate-900 stroke-slate-500 stroke-1" />
+                      <text x="330" y="38" className="text-[7.5px] fill-slate-300 font-bold">CN-NET</text>
+
+                      <circle cx="50" cy="180" r="8" className="fill-slate-900 stroke-slate-500 stroke-1" />
+                      <text x="35" y="194" className="text-[7.5px] fill-slate-300 font-bold">EU-NET</text>
+
+                      <circle cx="350" cy="180" r="8" className="fill-emerald-900 stroke-emerald-500 stroke-1" />
+                      <text x="330" y="194" className="text-[7.5px] fill-emerald-300 font-bold">CH_SECURE</text>
+                    </svg>
+
+                    <span className="text-[8.5px] text-red-400 font-terminal italic">SYSTEM SECURITY LOCK IN JEOPARDY</span>
+                  </div>
+
+                  {/* Anti AI controls */}
+                  <div className="w-full md:w-56 flex flex-col gap-2.5 font-terminal">
+                    <div className="bg-[#141920] border border-[#1e2535] p-2.5 rounded-terminal uppercase">
+                      <span className="text-[8px] text-slate-400 block font-bold">// OMEGA SYSTEM TELEMETRY</span>
+                      <div className="mt-1.5 space-y-1.5 text-[9.5px]">
+                        <div className="flex justify-between">
+                          <span>THREAT INDEX:</span>
+                          <span className="text-red-500 font-bold">{gameState.omegaThreatLevel ? gameState.omegaThreatLevel.toFixed(1) : '15'}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>FIREWALL INTEGRITY:</span>
+                          <span className="text-[#00ff88] font-bold">{gameState.neuralFirewallPower ?? 50}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>ACTIVE ATTACKS:</span>
+                          <span className="text-[#ff3b5c]/80 truncate font-mono">
+                            {gameState.omegaActiveAttacks && gameState.omegaActiveAttacks.length > 0 ? gameState.omegaActiveAttacks.join(', ') : 'NONE_DETECTED'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <button 
+                        onClick={() => {
+                          setGameState(prev => {
+                            if (!prev || prev.player.cash < 250000000) {
+                              logToTerminal('REJECTED: Insufficient cash ($250M required) to deploy firewall reinforcements.', true);
+                              return prev;
+                            }
+                            const next = { ...prev };
+                            next.player.cash -= 250000000;
+                            next.neuralFirewallPower = Math.min(100, next.neuralFirewallPower + 25);
+                            logToTerminal('FIREWALL REINFORCED: Discharged clean subnet patches. Security ratings up.');
+                            playSyntheticSound('profit');
+                            return next;
+                          });
+                        }}
+                        className="w-full bg-[#00c2ff]/10 hover:bg-[#00c2ff]/20 border border-[#00c2ff]/40 text-[#00c2ff] font-bold py-1.5 text-center text-[9.5px] rounded-terminal uppercase tracking-tight cursor-pointer"
+                      >
+                        BOOST SUB_FIREWALL (-$250M)
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setGameState(prev => {
+                            if (!prev || prev.player.cash < 450000000) {
+                              logToTerminal('REJECTED: Insufficient finance reserves ($450M required).', true);
+                              return prev;
+                            }
+                            const next = { ...prev };
+                            next.player.cash -= 450000000;
+                            next.omegaThreatLevel = Math.max(5, next.omegaThreatLevel - 20);
+                            logToTerminal('ATTACK COMPLETED: Executed hardware nodes disruption raid over OMEGA systems.');
+                            playSyntheticSound('order');
+                            return next;
+                          });
+                        }}
+                        className="w-full bg-red-950/40 hover:bg-red-900/30 border border-red-700/50 text-red-400 font-bold py-1.5 text-center text-[9.5px] rounded-terminal uppercase tracking-tight cursor-pointer"
+                      >
+                        JAM OMEGA HARDWARD NODES (-$450M)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'DEBT' && (
+              <div className="flex flex-col h-full overflow-hidden select-none font-mono">
+                <div className="flex justify-between items-center bg-[#0f1318] border border-[#1e2535] p-2 rounded-terminal mb-1.5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)]">
+                  <span className="text-[10px] text-[#00ff88] font-bold uppercase tracking-wider">// MACRO SOVEREIGN CDS DEBT STRESS TRACE</span>
+                  <span className="text-[9px] text-[#00c2ff] font-bold">CONTAGION TRANSM TRANSMISSION INTERFACE</span>
+                </div>
+
+                <div className="flex-1 bg-[#07090d] border border-[#1e2535] p-3 rounded-terminal overflow-y-auto flex flex-col gap-3 font-terminal">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                    {Object.values(gameState.countries).map((country: any) => {
+                      const stressColor = country.debtStress > 70 ? 'text-[#ff3b5c] border-[#ff3b5c]' : country.debtStress > 40 ? 'text-orange-400 border-orange-500' : 'text-[#00ff88] border-emerald-500';
+                      return (
+                        <div key={country.id} className={`bg-[#141920] border p-2 rounded-terminal uppercase text-center ${stressColor}/30`}>
+                          <span className="font-bold block text-[10px] mb-0.5">{country.name}</span>
+                          <span className="text-[8px] text-slate-500 block mb-1.5">// CDS RATIO EXP</span>
+                          
+                          <div className="space-y-0.5 text-[9.5px] text-left">
+                            <div className="flex justify-between">
+                              <span>DEBT STRESS:</span>
+                              <span className={`font-black ${stressColor}`}>{country.debtStress.toFixed(1)}%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>BONDS ISSUED:</span>
+                              <span className="text-white">${(country.bondsIssued / 1e9).toFixed(1)}B</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>BASE RATE:</span>
+                              <span className="text-white">{(country.interestRate * 100).toFixed(2)}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="border border-[#1e2535] p-2 rounded-terminal bg-[#0a0c0f]">
+                    <span className="text-[8.5px] text-[#00c2ff] block mb-1 font-bold uppercase tracking-wider">// SYSTEM CONTAGION FACTOR</span>
+                    <p className="text-[9.5px] text-slate-300 leading-relaxed font-mono">
+                      High <span className="text-[#ff3b5c] font-bold">Sovereign Debt Stress</span> metrics on major corridors (especially inside US) spark compounding panic sell-offs on equities. Monitor indices closely to purchase protection derivatives.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'SUPPLY_CHAINS' && (
+              <div className="flex flex-col h-full overflow-hidden select-none font-mono">
+                <div className="flex justify-between items-center bg-[#0f1318] border border-[#1e2535] p-2 rounded-terminal mb-1.5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)]">
+                  <span className="text-[10px] text-[#00c2ff] font-bold uppercase tracking-wider">// RAW MATERIALS & SHORELINE LITHIUM HEGEMONY MATRIX</span>
+                  <span className="text-[9px] text-[#00ff88] font-bold">MATERIAL LOGISTICS DESK</span>
+                </div>
+
+                <div className="flex-1 bg-[#07090d] border border-[#1e2535] p-3 rounded-terminal overflow-y-auto flex flex-col md:flex-row gap-3">
+                  <div className="flex-1 bg-[#0a0c0f] border border-[#1e2535] rounded-terminal p-3 flex flex-col justify-between font-terminal">
+                    <div>
+                      <span className="text-[8px] opacity-60 text-slate-400 block mb-2 uppercase font-bold">// CRITICAL DEPOT CAPTURE</span>
+                      
+                      <div className="space-y-3">
+                        <div className="space-y-0.5">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="font-bold text-yellow-400">URANIUM MINES FUTURE HOARDS</span>
+                            <span className="font-bold text-white">45% EXTRACTED</span>
+                          </div>
+                          <div className="w-full bg-[#141920] border border-[#1e2535] h-2 rounded-full overflow-hidden">
+                            <div className="bg-yellow-500 h-full" style={{ width: '45%' }} />
+                          </div>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="font-bold text-cyan-400">LITHIUM RESERVES CORNER CONTROL</span>
+                            <span className="font-bold text-white">58% EXTRACTED</span>
+                          </div>
+                          <div className="w-full bg-[#141920] border border-[#1e2535] h-2 rounded-full overflow-hidden">
+                            <div className="bg-cyan-500 h-full" style={{ width: '58%' }} />
+                          </div>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="font-bold text-emerald-400">SOY GRAIN CORRIDOR CORNER</span>
+                            <span className="font-bold text-white">20% EXTRACTED</span>
+                          </div>
+                          <div className="w-full bg-[#141920] border border-[#1e2535] h-2 rounded-full overflow-hidden">
+                            <div className="bg-emerald-500 h-full" style={{ width: '20%' }} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-[8.5px] text-slate-400 leading-snug mt-2 border-t border-slate-900 pt-1">
+                      Hoarding materials expands dynastic yields while increasing global cost inflation, prompting heavy regulatory oversight.
+                    </p>
+                  </div>
+
+                  <div className="w-full md:w-56 bg-[#141920] border border-[#1e2535] rounded-terminal p-2.5 uppercase flex flex-col gap-2 justify-between font-terminal">
+                    <div>
+                      <span className="text-[8px] text-slate-400 block mb-1 font-bold">// SECULAR MATERIAL PRICING</span>
+                      <div className="space-y-0.5 text-[9.5px]">
+                        <div className="flex justify-between border-b border-slate-900 pb-0.5">
+                          <span>SOY GRAIN SPOT:</span>
+                          <span className="text-[#00ff88]">${gameState.markets['SOY-CROP'] ? (gameState.markets['SOY-CROP'] as any).currentPrice.toFixed(2) : '31.42'}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-900 pb-0.5">
+                          <span>ENERGY FUTURE:</span>
+                          <span className="text-[#00ff88]">${gameState.markets['WETH-FUT'] ? (gameState.markets['WETH-FUT'] as any).currentPrice.toFixed(2) : '184.22'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        setGameState((p) => {
+                          if (!p || p.player.cash < 350000000) {
+                            logToTerminal('REJECTED: Insufficient cash ($350M required) for physical straits blockade.', true);
+                            return p;
+                          }
+                          const next = { ...p };
+                          next.player.cash -= 350000000;
+                          Object.values(next.markets).forEach((m: any) => {
+                            m.currentPrice *= 1.15;
+                          });
+                          logToTerminal('SHIIPING REALLOCATED: Strait blockades enforced. Volcanic price increases executed across physical books.');
+                          playSyntheticSound('profit');
+                          return next;
+                        });
+                      }}
+                      className="w-full bg-[#00ff88]/10 hover:bg-[#00ff88]/20 border border-[#00ff88]/40 text-[#00ff88] font-bold p-1 rounded-terminal uppercase tracking-tight text-center text-[9.5px] cursor-pointer"
+                    >
+                      ENFORCE STRAITS BLOCKADE (-$350M)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'SATELLITES' && (
+              <div className="flex flex-col h-full overflow-hidden select-none font-mono">
+                <div className="flex justify-between items-center bg-[#0f1318] border border-[#1e2535] p-2 rounded-terminal mb-1.5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)]">
+                  <span className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider">// ORBITAL SWEEP CO-INTEGRATION RADARS</span>
+                  <span className="text-[9px] text-[#00c2ff] font-bold">RADAR CONSOLE</span>
+                </div>
+
+                <div className="flex-1 bg-[#07090d] border border-[#1e2535] p-3 rounded-terminal overflow-y-auto flex flex-col md:flex-row gap-3">
+                  <div className="flex-1 bg-[#0a0c0f] border border-[#1e2535] rounded-terminal p-3 flex flex-col justify-between items-center relative min-h-[180px] font-terminal">
+                    <div className="absolute inset-0 pointer-events-none opacity-25">
+                      <div className="w-full h-full rounded-full border border-yellow-500/30 animate-pulse scale-90" />
+                      <div className="w-full h-full rounded-full border border-yellow-500/15 animate-ping" />
+                    </div>
+
+                    <span className="text-[8px] opacity-60 text-slate-400 self-start uppercase font-bold">// CO-INTEGRATION AZIMUTH PLOT</span>
+                    
+                    <div className="space-y-1 text-center my-auto z-10">
+                      <span className="text-yellow-400 font-bold text-[12px] block tracking-wider animate-pulse">// SATELLITE SENSOR LINK ESTABLISHED //</span>
+                      <p className="text-[9.5px] text-slate-300 max-w-sm">
+                        High-altitude arrays sweep critical physical nodes, harvesting security exploits and public distress files to feed automated frontrunners arbitrage.
+                      </p>
+                    </div>
+
+                    <div className="flex justify-between items-center w-full border-t border-slate-900 pt-1 text-[8.5px] text-slate-500 uppercase">
+                      <span>RADAR SWEEP ANGLE: 120DEG</span>
+                      <span>RESOLUTION: 0.1M DET DETAIL</span>
+                    </div>
+                  </div>
+
+                  <div className="w-full md:w-56 bg-[#141920] border border-[#1e2535] rounded-terminal p-2.5 uppercase flex flex-col gap-2 justify-between font-terminal">
+                    <div>
+                      <span className="text-[8px] text-slate-400 block mb-1 font-bold">// CONSTELLATION OVERVIEW</span>
+                      <div className="space-y-0.5 text-[9.5px] text-slate-300">
+                        {gameState.satelliteCoordinates && gameState.satelliteCoordinates.map((sat: any) => (
+                          <div key={sat.id} className="flex justify-between border-b border-slate-900 pb-0.5">
+                            <span>{sat.name}:</span>
+                            <span className="text-yellow-400 font-bold">AZ:{sat.x.toFixed(0)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        setGameState((p) => {
+                          if (!p || p.player.cash < 180000000) {
+                            logToTerminal('REJECTED: Insufficient cash ($180M required) for satellite launch.', true);
+                            return p;
+                          }
+                          const next = { ...p };
+                          next.player.cash -= 180000000;
+                          const newId = next.satelliteCoordinates ? next.satelliteCoordinates.length + 1 : 1;
+                          if (!next.satelliteCoordinates) next.satelliteCoordinates = [];
+                          next.satelliteCoordinates.push({
+                            id: 'sat_' + newId,
+                            name: 'CORVUS_' + String.fromCharCode(64 + newId),
+                            x: Math.random() * 400 + 100,
+                            y: Math.random() * 150 + 50
+                          });
+                          logToTerminal(`PAYLOAD DEPLOYED: Satellite CORVUS_${String.fromCharCode(64 + newId)} placed in stable low-Earth orbit. Scanning nodes.`);
+                          playSyntheticSound('profit');
+                          return next;
+                        });
+                      }}
+                      className="w-full bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/40 text-yellow-500 font-bold p-1 rounded-terminal uppercase tracking-tight text-center text-[9.5px] cursor-pointer"
+                    >
+                      LAUNCH NEW SATELLITE (-$180M)
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
 
             {activeTab === 'RESEARCH' && (
