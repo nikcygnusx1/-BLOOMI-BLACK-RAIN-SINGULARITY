@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useEffect, useRef } from 'react';
 import { createInitialWorld, saveSimState, loadSimState } from './sim/state';
 import { GeopoliticalOmegaEngine } from './sim/engines';
@@ -14,6 +9,9 @@ import { MacroPanel } from './components/MacroPanel';
 import { CorporatePanel } from './components/CorporatePanel';
 import { IntelligencePanel } from './components/IntelligencePanel';
 import { CharacterCreator } from './components/CharacterCreator';
+import { FundOpsPanel } from './components/FundOpsPanel';
+import { MarketsHeatmap } from './components/MarketsHeatmap';
+import { playSyntheticSound } from './utils/audio';
 import { 
   Skull, 
   Activity, 
@@ -25,12 +23,20 @@ import {
   Radio, 
   ShieldAlert, 
   UserCheck, 
-  Coins 
+  Coins,
+  MessageSquare,
+  Briefcase,
+  Layers,
+  Sparkles,
+  Award,
+  BookOpen,
+  PieChart,
+  DollarSign
 } from 'lucide-react';
 
 export default function App() {
   const [gameState, setGameState] = useState<SimState | null>(null);
-  const [activeTab, setActiveTab] = useState<'HELP' | 'TRADING' | 'CORPORATE' | 'MACRO' | 'INFLUENCE' | 'DYNASTY' | 'INTELLIGENCE'>('TRADING');
+  const [activeTab, setActiveTab] = useState<'HELP' | 'TRADING' | 'CORPORATE' | 'MACRO' | 'INFLUENCE' | 'DYNASTY' | 'INTELLIGENCE' | 'OPERATION' | 'MARKETS'>('TRADING');
   const [selectedTicker, setSelectedTicker] = useState('APLH');
   
   // CLI State
@@ -40,19 +46,28 @@ export default function App() {
     'TYPE "/help" IN TERMINAL PROMPT FOR ACCESS CODES.'
   ]);
 
-  // Alert categories filtering
+  // LP & Chat states
   const [feedFilter, setFeedFilter] = useState<'ALL' | 'CABLES' | 'TRAUMA'>('ALL');
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [lpResponse, setLpResponse] = useState<string | null>(null);
+  const [lpLoading, setLpLoading] = useState(false);
 
   // Core Simulation Ticker Ticks loop runner
   const [isPaused, setIsPaused] = useState(true);
   const [speedMultiplier, setSpeedMultiplier] = useState<number>(1);
   const loopRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Track Career Stage to trigger transition animation
+  const [prevStage, setPrevStage] = useState<string>('Family Office');
+  const [showLevelUpCelebration, setShowLevelUpCelebration] = useState(false);
+
   // Initialize from LocalStorage autosave or direct onboard creator
   useEffect(() => {
     const saved = loadSimState();
     if (saved) {
       setGameState(saved);
+      setPrevStage(saved.careerStage || 'Family Office');
       setTerminalLogs(prev => [...prev, 'STATE RESTORATION: Loaded existing autosave state ledger.']);
     }
   }, []);
@@ -67,6 +82,18 @@ export default function App() {
       setGameState((prev) => {
         if (!prev) return null;
         const nextState = GeopoliticalOmegaEngine.tick({ ...prev });
+        
+        // Check for stage progression celebration
+        if (nextState.careerStage !== prevStage) {
+          setPrevStage(nextState.careerStage);
+          setShowLevelUpCelebration(true);
+          playSyntheticSound('profit');
+          // Auto-dim after 5.5s
+          setTimeout(() => {
+            setShowLevelUpCelebration(false);
+          }, 5500);
+        }
+
         // Auto-save state every 15 ticks of progress
         if (nextState.currentTick % 15 === 0) {
           saveSimState(nextState);
@@ -78,7 +105,7 @@ export default function App() {
     return () => {
       if (loopRef.current) clearInterval(loopRef.current);
     };
-  }, [isPaused, speedMultiplier, gameState?.currentTick]);
+  }, [isPaused, speedMultiplier, gameState?.currentTick, prevStage]);
 
   if (!gameState) {
     return (
@@ -86,6 +113,7 @@ export default function App() {
         onComplete={(params) => {
           const state = createInitialWorld(params);
           setGameState(state);
+          setPrevStage(state.careerStage || 'Family Office');
           setTerminalLogs(prev => [
             ...prev,
             `SYNDICATE ORIGIN SET: Host account created for ${params.name.toUpperCase()}.`,
@@ -95,6 +123,67 @@ export default function App() {
       />
     );
   }
+
+  // --- CALCULATION OF INTEGRATED FINANCIAL RISK METRICS ---
+  let stocksValue = 0;
+  (Object.entries(gameState.player.assets.stocks) as [string, number][]).forEach(([t, q]) => {
+    stocksValue += q * (gameState.markets[t]?.currentPrice || 0);
+  });
+
+  let cryptoValue = 0;
+  (Object.entries(gameState.player.assets.crypto) as [string, number][]).forEach(([t, q]) => {
+    cryptoValue += q * (gameState.markets[t]?.currentPrice || 0);
+  });
+
+  let bondsValue = 0;
+  (Object.entries(gameState.player.assets.bonds) as [string, number][]).forEach(([cId, heldAmt]) => {
+    bondsValue += heldAmt;
+  });
+
+  let shortsValue = 0;
+  (Object.entries(gameState.shorts || {}) as [string, { qty: number; avgPrice: number }][]).forEach(([t, data]) => {
+    if (data && data.qty > 0) {
+      shortsValue += data.qty * (gameState.markets[t]?.currentPrice || 0);
+    }
+  });
+
+  const portfolioAUM = gameState.player.cash + stocksValue + cryptoValue + bondsValue - shortsValue;
+  
+  // Sharpe Ratio
+  const returns = gameState.lastDailyReturns || [];
+  const meanRet = returns.reduce((sum, r) => sum + r, 0) / (returns.length || 1);
+  const varianceRet = returns.reduce((sum, r) => sum + Math.pow(r - meanRet, 2), 0) / (returns.length || 1);
+  const volRet = Math.sqrt(varianceRet) || 0.01;
+  const annualizedVol = volRet * Math.sqrt(52);
+  const sharpeRatio = annualizedVol > 0.001 ? (meanRet * 52 - 0.04) / annualizedVol : 0.0;
+
+  // Drawdown
+  const currentDrawdown = gameState.highWaterMark > portfolioAUM ? ((gameState.highWaterMark - portfolioAUM) / gameState.highWaterMark) * 100 : 0;
+
+  // Beta relative to Benchmark Index
+  const bReturns = gameState.benchmarkReturns || [];
+  const bMean = bReturns.reduce((sum, r) => sum + r, 0) / (bReturns.length || 1);
+  let cov = 0;
+  let bVar = 0.0001;
+  for (let i = 0; i < Math.min(returns.length, bReturns.length); i++) {
+    cov += (returns[i] - meanRet) * (bReturns[i] - bMean);
+    bVar += Math.pow(bReturns[i] - bMean, 2);
+  }
+  const betaVal = cov / bVar;
+
+  // Concentration: Largest position vs gross value
+  const valuesArray = [
+    ...(Object.entries(gameState.player.assets.stocks) as [string, number][]).map(([t, q]) => q * (gameState.markets[t]?.currentPrice || 0)),
+    ...(Object.entries(gameState.player.assets.crypto) as [string, number][]).map(([t, q]) => q * (gameState.markets[t]?.currentPrice || 0))
+  ];
+  const stockMax = Math.max(...valuesArray, 0);
+  const concentrationPct = portfolioAUM > 0 ? (stockMax / portfolioAUM) * 100 : 0;
+
+  // Value at Risk (VaR)
+  const valueAtRisk = portfolioAUM * 1.65 * volRet * Math.sqrt(52) * 0.15;
+
+  // Performance P&L
+  const pnlPercent = meanRet * 100;
 
   // Helper bindings for simulation actions
   const handleBuyBonds = (countryId: string, amount: number) => {
@@ -108,7 +197,6 @@ export default function App() {
       next.player.cash -= amount;
       next.player.assets.bonds[countryId] = (next.player.assets.bonds[countryId] || 0) + amount;
       
-      // Calculate dynamic interest premium rate yields adjustments
       const country = next.countries[countryId];
       const ratio = country.bondsIssued / (country.gdp || 1);
       const yieldRate = country.interestRate + Math.max(0.001, (ratio - 0.5) * 0.05);
@@ -129,7 +217,6 @@ export default function App() {
       if (!prev) return null;
       return GeopoliticalOmegaEngine.toggleCentralBankMonetize({ ...prev }, countryId);
     });
-    const c = gameState.countries[countryId];
     logToTerminal(`PRINTING TOGGLE: Moneterization override toggled for ${countryId}.`);
   };
 
@@ -236,14 +323,11 @@ export default function App() {
     });
   };
 
+  // Support shorts natively in limits placements
   const handleLimitOrder = (side: 'buy' | 'sell', price: number, qty: number) => {
     const totalCap = price * qty;
     if (side === 'buy' && gameState.player.cash < totalCap) {
       logToTerminal('REJECTED: Insufficient cash funds to match buy order constraints.', true);
-      return;
-    }
-    if (side === 'sell' && (gameState.player.assets.stocks[selectedTicker] || 0) < qty) {
-      logToTerminal(`REJECTED: Insufficient matching stock position in ${selectedTicker}.`, true);
       return;
     }
 
@@ -266,9 +350,151 @@ export default function App() {
     });
   };
 
-  // Log outputs helper
   const logToTerminal = (text: string, isError: boolean = false) => {
     setTerminalLogs(prev => [...prev, `${isError ? 'ERROR // ' : 'SYS_OUT // '} ${text}`]);
+  };
+
+  // Chat Actions
+  const handleSendChat = async () => {
+    if (!chatInput.trim()) return;
+    const userMsg = { sender: 'user' as const, timestamp: new Date().toLocaleTimeString().substring(0, 5), text: chatInput };
+    
+    // Add locally to chat log
+    setGameState(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        chatLogs: [...(prev.chatLogs || []), userMsg]
+      };
+    });
+    setChatInput('');
+    setChatLoading(true);
+    playSyntheticSound('tick');
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [...(gameState?.chatLogs || []), userMsg],
+          context: {
+            date: gameState?.date,
+            aum: portfolioAUM,
+            cash: gameState?.player.cash,
+            careerStage: gameState?.careerStage,
+            positions: gameState?.player.assets.stocks,
+            bonds: gameState?.player.assets.bonds,
+            marketPrices: Object.fromEntries(
+              (Object.entries(gameState?.markets || {}) as [string, any][]).map(([t, m]) => [t, m.currentPrice])
+            ),
+            riskMetrics: {
+              sharpe: sharpeRatio,
+              maxDrawdown: currentDrawdown,
+              volatility: annualizedVol * 100,
+              beta: betaVal,
+              concentration: concentrationPct
+            }
+          }
+        })
+      });
+
+      const data = await res.json();
+      const assistantMsg = { sender: 'analyst' as const, timestamp: new Date().toLocaleTimeString().substring(0, 5), text: data.text || 'Analyst connection failed.' };
+      
+      setGameState(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          chatLogs: [...(prev.chatLogs || []), assistantMsg]
+        };
+      });
+      playSyntheticSound('profit');
+    } catch (err) {
+      console.error(err);
+      const errAlert = { sender: 'analyst' as const, timestamp: '', text: 'DOWNLINK INTERRUPTED: Offline telemetry active.' };
+      setGameState(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          chatLogs: [...(prev.chatLogs || []), errAlert]
+        };
+      });
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  // Fund Ops analyst hires
+  const handleHireAnalyst = (id: string, salary: number) => {
+    setGameState((prev) => {
+      if (!prev) return null;
+      const next = { ...prev };
+      const candidateIndex = next.hiringPool.findIndex(c => c.id === id);
+      if (candidateIndex === -1) return next;
+      const candidate = next.hiringPool[candidateIndex];
+
+      next.hiredAnalysts.push({
+        id: candidate.id,
+        name: candidate.name,
+        salary: candidate.salary,
+        specialty: candidate.specialty,
+        reports: []
+      });
+      next.hiringPool.splice(candidateIndex, 1);
+      logToTerminal(`ANALYST HIRED: Recruited AI Quantitative Analyst ${candidate.name.toUpperCase()}.`);
+      return next;
+    });
+  };
+
+  const handleFireAnalyst = (id: string) => {
+    setGameState((prev) => {
+      if (!prev) return null;
+      const next = { ...prev };
+      const index = next.hiredAnalysts.findIndex(a => a.id === id);
+      if (index === -1) return next;
+      const analyst = next.hiredAnalysts[index];
+
+      next.hiringPool.push({
+        id: analyst.id,
+        name: analyst.name,
+        salary: analyst.salary,
+        specialty: analyst.specialty,
+        tier: 'Senior'
+      });
+      next.hiredAnalysts.splice(index, 1);
+      logToTerminal(`ANALYST DISCHARGED: Terminated contract for ${analyst.name.toUpperCase()}.`);
+      return next;
+    });
+  };
+
+  const handleSendLPReport = async (reportText: string) => {
+    setLpLoading(true);
+    setLpResponse(null);
+    try {
+      const response = await fetch('/api/lp-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reportText,
+          context: {
+            aum: portfolioAUM,
+            quarterlyPnL: `${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(1)}%`,
+            riskMetrics: {
+              maxDrawdown: currentDrawdown,
+              sharpe: sharpeRatio,
+              concentration: concentrationPct
+            }
+          }
+        })
+      });
+      const data = await response.json();
+      setLpResponse(data.text || 'LPs acknowledged your report with no specific parameters.');
+    } catch (err) {
+      console.error(err);
+      setLpResponse('LPs offline. Report logged into terminal local registers.');
+    } finally {
+      setLpLoading(false);
+    }
   };
 
   // --- BLOOMBERG PROFESSIONAL UNIFIED COMMAND SYSTEM ---
@@ -277,11 +503,12 @@ export default function App() {
     if (!cmd) return;
 
     logToTerminal(`BBG> ${rawString}`);
+    playSyntheticSound('tick');
 
     // Help commands
     if (cmd === 'HELP' || cmd === 'HELP <GO>' || cmd === '/HELP' || cmd === 'F1' || cmd === 'F1 <GO>') {
       setActiveTab('HELP');
-      logToTerminal('WORKSTATUS: LOADED F1 [HELP] USER COGNITIVE SYSTEMS DIRECTIVES.');
+      logToTerminal('WORKSTATUS: LOADED F1 [HELP] USER GUIDE.');
       return;
     }
 
@@ -308,6 +535,14 @@ export default function App() {
     }
     if (cmd === 'F7' || cmd === 'F7 <GO>' || cmd === 'INTEL' || cmd === 'INTEL <GO>') {
       setActiveTab('INTELLIGENCE');
+      return;
+    }
+    if (cmd === 'F8' || cmd === 'F8 <GO>' || cmd === 'OPER' || cmd === 'OPER <GO>' || cmd === 'OPERATION' || cmd === 'OPERATION <GO>') {
+      setActiveTab('OPERATION');
+      return;
+    }
+    if (cmd === 'F9' || cmd === 'F9 <GO>' || cmd === 'MKT' || cmd === 'MKT <GO>' || cmd === 'MARKET' || cmd === 'MARKET <GO>' || cmd === 'MARKETS' || cmd === 'MARKETS <GO>') {
+      setActiveTab('MARKETS');
       return;
     }
 
@@ -438,15 +673,6 @@ export default function App() {
     executeUnifiedCommand(cmd);
   };
 
-  // Glitch strength metrics computed from Global Stability
-  const glitchStrength = 100 - gameState.globalStability;
-  let layoutGlitchClass = '';
-  if (glitchStrength > 60) {
-    layoutGlitchClass = 'glitch-severe';
-  } else if (glitchStrength > 35) {
-    layoutGlitchClass = 'glitch-moderate';
-  }
-
   // Live sidebar alerts compiling
   const combinedLogFeed = [];
   if (feedFilter === 'ALL' || feedFilter === 'CABLES') {
@@ -474,212 +700,239 @@ export default function App() {
   combinedLogFeed.sort((a, b) => b.time.localeCompare(a.time));
 
   return (
-    <div className="h-screen w-screen bg-[#000000] text-[#FFFFFF] font-mono text-xs overflow-hidden flex flex-col relative select-none">
+    <div className="h-screen w-screen bg-[#0a0c0f] text-[#e8edf5] font-sans text-xs overflow-hidden flex flex-col relative select-none">
       
-      {/* HEADER TAPE: Dynamic strict ticker matching Bloomberg design */}
-      <header className="h-[36px] bg-[#000000] border-b border-[#FFB000]/30 flex items-center justify-between px-2 z-10 shrink-0 select-none">
+      {/* 1. UPGRADED TOP BAR PANEL */}
+      <header className="h-[38px] bg-[#0f1318] border-b border-[#1e2535] flex items-center justify-between px-3 z-10 shrink-0 select-none">
         <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 bg-[#FFB000]"></div>
-          <span className="font-bold tracking-tight uppercase text-[11px] text-[#FFFFFF]">BLOOMBERG PROFESSIONAL SERVICE</span>
+          <div className="w-2 h-2 bg-[#00c2ff]" />
+          <span className="font-display font-bold tracking-tight uppercase text-xs text-white">GLOBAL SOVEREIGN TERMINAL</span>
         </div>
 
-        {/* Ticker marquee */}
-        <div className="flex-1 mx-2 overflow-hidden relative h-[22px] flex items-center border border-[#FFB000]/20 bg-black px-2">
-          <div className="animate-ticker flex gap-6">
-            {Object.values(gameState.markets).map((m: any) => {
-              const hist = m.history[m.history.length - 2];
-              const isUp = hist ? m.currentPrice >= hist.close : true;
-              return (
-                <span 
-                  key={m.ticker} 
-                  className={`text-[10px] tracking-wider font-mono font-bold cursor-pointer hover:text-white transition-colors duration-150 ${isUp ? 'text-[#00FF00]' : 'text-[#FF0000]'}`}
-                  onClick={() => {
-                    executeUnifiedCommand(`${m.ticker} <GO>`);
-                  }}
-                >
-                  {m.ticker}: ${m.currentPrice.toFixed(2)} {isUp ? '▲' : '▼'}
-                </span>
-              );
-            })}
+        {/* Global Net fund information indicators */}
+        <div className="flex items-center gap-4 text-[10.5px]">
+          <div>AUM: <span className="text-[#00ff88] font-bold font-terminal">${portfolioAUM.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+          <div>DLY P&L: <span className={`font-bold font-terminal ${pnlPercent >= 0 ? 'text-[#00ff88]' : 'text-[#ff3b5c]'}`}>{pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%</span></div>
+          <div className="flex items-center gap-1">
+            <span className="bg-[#00ff88]/15 text-[#00ff88] border border-[#00ff88]/30 px-1 py-0.2 rounded-terminal text-[8px] font-bold uppercase animate-pulse">MARKETS OPEN</span>
           </div>
         </div>
 
-        {/* Calendar and counters */}
-        <div className="flex items-center gap-2 text-[10px] text-white">
-          <div>TICK: <span className="text-[#FFB000] font-bold">{gameState.currentTick}</span></div>
-          <div className="text-white">DATE: <span className="text-[#FFB000]">{gameState.date}</span></div>
+        {/* Calendar and speed multi-controls */}
+        <div className="flex items-center gap-3 text-[10px] text-slate-300">
+          <div>TICK: <span className="text-[#00c2ff] font-bold font-terminal">{gameState.currentTick}</span></div>
+          <div>DATE: <span className="text-white font-terminal">{gameState.date}</span></div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[#FFB000]">SPD:</span>
             <button 
-              onClick={() => setIsPaused(!isPaused)} 
-              className={`px-1 py-0.5 border text-[9px] cursor-pointer font-bold ${isPaused ? 'border-[#00FF00] text-[#00FF00] bg-black' : 'border-white text-white'}`}
+              onClick={() => { setIsPaused(!isPaused); playSyntheticSound('tick'); }} 
+              className={`px-1.5 py-0.5 border text-[9px] cursor-pointer font-bold rounded-terminal uppercase ${isPaused ? 'border-[#00ff88] text-[#00ff88] bg-[#00ff88]/10' : 'border-slate-500 text-slate-300'}`}
             >
-              {isPaused ? 'HALT' : 'RUN'}
+              {isPaused ? 'HALTED' : 'RUNNING'}
             </button>
-            <button 
-              onClick={() => setSpeedMultiplier(1)} 
-              className={`px-1 py-0.5 border text-[9px] cursor-pointer ${speedMultiplier === 1 ? 'border-[#00FF00] text-[#00FF00] bg-black' : 'border-white text-white'}`}
-            >
-              1X
-            </button>
-            <button 
-              onClick={() => setSpeedMultiplier(5)} 
-              className={`px-1 py-0.5 border text-[9px] cursor-pointer ${speedMultiplier === 5 ? 'border-[#00FF00] text-[#00FF00] bg-black' : 'border-white text-white'}`}
-            >
-              5X
-            </button>
-            <button 
-              onClick={() => setSpeedMultiplier(10)} 
-              className={`px-1 py-0.5 border text-[9px] cursor-pointer ${speedMultiplier === 10 ? 'border-[#00FF00] text-[#00FF00] bg-black' : 'border-white text-white'}`}
-            >
-              10X
-            </button>
+            <div className="flex rounded-terminal border border-[#1e2535] overflow-hidden">
+              {([1, 5, 10] as number[]).map((spd) => (
+                <button
+                  key={spd}
+                  onClick={() => { setSpeedMultiplier(spd); playSyntheticSound('tick'); }}
+                  className={`px-1.5 py-0.5 text-[8.5px] cursor-pointer transition-all ${speedMultiplier === spd ? 'bg-[#00c2ff]/20 text-[#00c2ff] font-bold' : 'text-slate-400 hover:text-white bg-[#0f1318]'}`}
+                >
+                  {spd}X
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </header>
 
       {/* CORE WORKSPACE PANELS CONTAINER */}
-      <div className="flex-1 flex overflow-hidden z-10 bg-black">
+      <div className="flex-1 flex overflow-hidden z-10 bg-[#0a0c0f]">
         
-        {/* LEFT COLUMN: News Intelligence, logs feeds */}
-        <div className="w-[30%] border-r border-[#FFB000]/20 bg-black flex flex-col overflow-hidden shrink-0 z-10">
-          <div className="p-1 border-b border-[#FFB000]/25 bg-black flex justify-between items-center select-none">
-            <span className="text-[10px] uppercase font-bold text-[#FFB000]">
-              SYS CABLES LOG
-            </span>
-            <div className="flex gap-1">
-              {['ALL', 'CABLES', 'TRAUMA'].map(btn => (
-                <button
-                  key={btn}
-                  onClick={() => setFeedFilter(btn as any)}
-                  className={`text-[8px] px-1 py-0.5 border cursor-pointer ${feedFilter === btn ? 'border-[#FFB000] text-[#FFB000]' : 'border-white/20 text-white/50'}`}
+        {/* LEFT COLUMN: NAVIGATION TAB WORKSPACE + INTEGRATED RISK DASHBOARD */}
+        <div className="w-[320px] border-r border-[#1e2535] bg-[#0a0c0f] flex flex-col overflow-hidden shrink-0 z-10 p-2 gap-2.5">
+          
+          {/* Section A: Vertical Visual Tabs Lists */}
+          <div className="bg-[#0f1318] border border-[#1e2535] p-2 rounded-terminal flex flex-col gap-1.5">
+            <h3 className="text-slate-400 font-display font-bold uppercase text-[9px] tracking-wider mb-0.5">PLATFORM CORE SECTIONS</h3>
+            
+            <div className="grid grid-cols-2 gap-1.5 font-terminal">
+              {[
+                { id: 'HELP' as const, key: 'F1', label: 'HELP_DESK', icon: Sparkles },
+                { id: 'TRADING' as const, key: 'F2', label: 'EQTY_TRADE', icon: TrendingUp },
+                { id: 'CORPORATE' as const, key: 'F3', label: 'CORP_OP', icon: Briefcase },
+                { id: 'MACRO' as const, key: 'F4', label: 'GOVT_BNDS', icon: Globe },
+                { id: 'INFLUENCE' as const, key: 'F5', label: 'SHDW_LOBBY', icon: Network },
+                { id: 'DYNASTY' as const, key: 'F6', label: 'DYNA_GENE', icon: Award },
+                { id: 'INTELLIGENCE' as const, key: 'F7', label: 'INTEL_DIV', icon: Skull },
+                { id: 'OPERATION' as const, key: 'F8', label: 'FUND_OPS', icon: PieChart },
+                { id: 'MARKETS' as const, key: 'F9', label: 'MKT_GRID', icon: Layers }
+              ].map((tab) => {
+                const isActive = activeTab === tab.id;
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      executeUnifiedCommand(`${tab.key} <GO>`);
+                    }}
+                    className={`h-[30px] px-2 flex items-center gap-1.5 rounded-terminal font-bold tracking-tight cursor-pointer transition-all border ${
+                      isActive 
+                        ? 'bg-gradient-to-r from-[#00c2ff]/30 to-[#0066ff]/10 text-white border-[#00c2ff]' 
+                        : 'bg-[#141920] border-[#1e2535] text-slate-400 hover:text-white hover:border-[#2a3550]'
+                    }`}
+                  >
+                    <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#00c2ff]' : 'text-slate-500'}`} />
+                    <span className="text-[9.5px] uppercase font-mono">
+                      {tab.key} {tab.label.split('_')[0]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section B: Risk Desk Dashboard Always Visible */}
+          <div className="bg-[#0f1318] border border-[#1e2535] p-2.5 rounded-terminal flex flex-col gap-2">
+            <h3 className="text-white font-display font-medium tracking-tight text-[10px] uppercase border-b border-[#1e2535] pb-1 flex justify-between items-center select-none">
+              <span>Risk Desk Dashboard</span>
+              <span className="text-[#00c2ff] text-[9px] font-mono">SYSTEM_BASEL_IV</span>
+            </h3>
+
+            <div className="grid grid-cols-2 gap-2 text-center text-[10px] font-terminal">
+              <div className="bg-[#141920] border border-[#1e2535] p-1.5 rounded-terminal">
+                <span className="text-slate-400 text-[8px] block uppercase">SHARPE RATIO</span>
+                <span className="font-bold text-[#00ff88] text-xs">{sharpeRatio.toFixed(2)}</span>
+              </div>
+              <div className="bg-[#141920] border border-[#1e2535] p-1.5 rounded-terminal">
+                <span className="text-slate-400 text-[8px] block uppercase">MAX DRAWDOWN</span>
+                <span className="font-bold text-[#ff3b5c] text-xs">{currentDrawdown.toFixed(1)}%</span>
+              </div>
+              <div className="bg-[#141920] border border-[#1e2535] p-1.5 rounded-terminal">
+                <span className="text-slate-400 text-[8px] block uppercase">PORTFOLIO VOLATILITY</span>
+                <span className="font-bold text-white text-xs">{annualizedVol >= 0 ? (annualizedVol * 100).toFixed(1) : '12.4'}%</span>
+              </div>
+              <div className="bg-[#141920] border border-[#1e2535] p-1.5 rounded-terminal">
+                <span className="text-slate-400 text-[8px] block uppercase">BENCHMARK BETA</span>
+                <span className="font-bold text-slate-300 text-xs">{betaVal ? betaVal.toFixed(2) : '0.88'}</span>
+              </div>
+              <div className="bg-[#141920] border border-[#1e2535] p-1.5 rounded-terminal">
+                <span className="text-slate-400 text-[8px] block uppercase">CONCENTRATION INDEX</span>
+                <span className="font-bold text-slate-300 text-xs">{concentrationPct.toFixed(1)}%</span>
+              </div>
+              <div className="bg-[#141920] border border-[#1e2535] p-1.5 rounded-terminal">
+                <span className="text-slate-400 text-[8px] block uppercase">VALUE AT RISK (VaR)</span>
+                <span className="font-bold text-[#ff3b5c] text-xs">${(valueAtRisk / 1e6).toFixed(1)}M</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Section C: Live cables filter logs */}
+          <div className="flex-1 bg-[#0f1318] border border-[#1e2535] rounded-terminal p-2 shrink-0 flex flex-col overflow-hidden">
+            <div className="border-b border-[#1e2535] pb-1 bg-[#0f1318] flex justify-between items-center select-none shrink-0 mb-1.5">
+              <span className="text-[9px] uppercase font-bold text-slate-300">
+                SYS CABLES LOG
+              </span>
+              <div className="flex bg-[#0a0c0f] border border-[#1e2535] rounded-terminal p-0.5">
+                {['ALL', 'CABLES', 'TRAUMA'].map(btn => (
+                  <button
+                    key={btn}
+                    onClick={() => { setFeedFilter(btn as any); playSyntheticSound('tick'); }}
+                    className={`text-[8px] font-bold px-1.5 py-0.5 cursor-pointer rounded-terminal ${feedFilter === btn ? 'bg-[#00c2ff]/20 text-[#00c2ff]' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    {btn}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto flex flex-col gap-1.5">
+              {combinedLogFeed.map((feed, idx) => (
+                <div 
+                  key={idx} 
+                  className={`p-1.5 border rounded-terminal text-[10px] leading-tight bg-[#141920] ${
+                    feed.type === 'trauma' ? 'border-rose-900/40 text-[#ff3b5c]' : 'border-[#1e2535] text-[#e8edf5]'
+                  }`}
                 >
-                  {btn}
-                </button>
+                  <div className="flex justify-between items-center text-[8px] opacity-60 mb-0.5 font-terminal">
+                    <span>{feed.time}</span>
+                    <span className={feed.type === 'trauma' ? 'text-[#ff3b5c] font-bold' : 'text-[#00c2ff]'}>{feed.classification}</span>
+                  </div>
+                  <p className="font-terminal font-medium leading-normal">
+                    {feed.text}
+                  </p>
+                </div>
               ))}
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-1 flex flex-col gap-1 bg-black">
-            {combinedLogFeed.map((feed, idx) => (
-              <div 
-                key={idx} 
-                className={`p-1.5 border border-[#FFB000]/25 text-[10px] leading-tight bg-black ${
-                  feed.type === 'trauma' ? 'border-[#FF0000] text-[#FF0000]' : 'border-[#FFB000]/25 text-[#FFFFFF]'
-                }`}
-              >
-                <div className="flex justify-between items-center text-[8px] opacity-60 mb-0.5 font-mono">
-                  <span>{feed.time}</span>
-                  <span className={feed.type === 'trauma' ? 'text-[#FF0000] font-bold' : 'text-[#FFB000]'}>{feed.classification}</span>
-                </div>
-                <p className="font-mono">
-                  {feed.text}
-                </p>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* CENTER COMPONENT: Active main visual tabs view */}
-        <div className="flex-1 flex flex-col overflow-hidden z-20 border-r border-[#FFB000]/20 bg-black">
-          
-          {/* Bloomberg styled mechanical function key row */}
-          <div className="h-[30px] bg-[#000000] border-b border-[#FFB000]/30 flex items-center px-1 select-none shrink-0 gap-1 overflow-x-auto">
-            {[
-              { id: 'HELP' as const, key: 'F1', label: 'HELP', bg: 'bg-[#FF0000] text-white' },
-              { id: 'TRADING' as const, key: 'F2', label: 'EQTY', bg: 'bg-[#FFB000] text-black' },
-              { id: 'CORPORATE' as const, key: 'F3', label: 'CORP', bg: 'bg-[#FFB000] text-black' },
-              { id: 'MACRO' as const, key: 'F4', label: 'GOVT', bg: 'bg-[#FFB000] text-black' },
-              { id: 'INFLUENCE' as const, key: 'F5', label: 'LOBBY', bg: 'bg-[#FFB000] text-black' },
-              { id: 'DYNASTY' as const, key: 'F6', label: 'FOUND', bg: 'bg-[#FFB000] text-black' },
-              { id: 'INTELLIGENCE' as const, key: 'F7', label: 'INTEL', bg: 'bg-[#FFB000] text-black' }
-            ].map((tab) => {
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    executeUnifiedCommand(`${tab.key} <GO>`);
-                  }}
-                  className={`h-[24px] px-2 flex items-center justify-center font-bold tracking-tight cursor-pointer transition-all border ${
-                    isActive 
-                      ? 'bg-white text-black border-white' 
-                      : `${tab.bg} border-black hover:opacity-100`
-                  }`}
-                  style={{ minWidth: '70px' }}
-                >
-                  <span className="text-[10px] uppercase font-mono">
-                    {tab.key} &lt;{tab.label}&gt;
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
+        <div className="flex-1 flex flex-col overflow-hidden z-20 border-r border-[#1e2535] bg-[#0a0c0f]">
           {/* Tab contents visual container */}
-          <div className="flex-1 overflow-hidden bg-black p-1">
+          <div className="flex-1 overflow-hidden bg-[#0a0c0f] p-2">
             {activeTab === 'HELP' && (
-              <div className="p-2 flex flex-col gap-2 overflow-y-auto h-full font-mono text-xs select-none bg-black text-[#FFB000]">
-                <h2 className="text-[#FFB000] font-bold text-sm tracking-wider border-b border-[#FFB000]/40 pb-1">
-                  BLOOMBERG PROFESSIONAL SERVICE // COMMAND INTERFACE & FUNCTION NAVIGATION
+              <div className="p-3 flex flex-col gap-2.5 overflow-y-auto h-full font-mono text-xs select-none bg-[#0f1318] border border-[#1e2535] rounded-terminal text-[#00c2ff]">
+                <h2 className="text-[#00c2ff] font-display font-medium text-sm tracking-tight border-b border-[#1e2535] pb-1.5">
+                  GLOBAL SOVEREIGN TERMINAL // COMMAND CHANNELS NAVIGATION
                 </h2>
-                <p className="text-[11px] text-[#FFFFFF] leading-relaxed">
-                  SECURE PLATFORM ENGAGED. DYN-LEVEL MACROECONOMIC AND LIQUIDITY REVENUE DESK CONTROLS ARE ROUTED VIA UNIFIED COMMAND SYMBOLS. ENTER THE CODES BELOW IN THE PROMPT TO MONITOR AND EXECUTE.
+                <p className="text-[11px] text-[#e8edf5] leading-relaxed">
+                  SECURE PLATFORM CORE INTEGRITY ENGAGED. CAPITALS DESK SYSTEMS AND PRIVATE ASSETS TRANSACTIONS ARE ROUTED VIA UNIFIED COMMAND DIALECTICS. ENTER THEM DIRECTLY IN THE BBG_CONSOLE SHELL BELOW.
                 </p>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1">
-                  <div className="border border-[#FFB000]/40 p-1 bg-black">
-                    <h3 className="text-[#FFFFFF] font-bold text-[10px] mb-1 border-b border-[#FFB000]/20 pb-0.5">FUNCTION KEY BOARD SHORTCUTS</h3>
-                    <div className="space-y-0.5 font-mono text-[9px]">
-                      <div><span className="text-[#FFFFFF] font-bold">F1 &lt;GO&gt;</span> - ACC REQUISITIONS GUIDE & DIRECTIVES</div>
-                      <div><span className="text-[#FFFFFF] font-bold">F2 &lt;GO&gt;</span> - OPEN INTERACTION SYMBOLS MARKET DESK</div>
-                      <div><span className="text-[#FFFFFF] font-bold">F3 &lt;GO&gt;</span> - CORPORATE ACQUISITIONS AND RE-STRUCTURE CONSOLE</div>
-                      <div><span className="text-[#FFFFFF] font-bold">F4 &lt;GO&gt;</span> - SOVEREIGN LIQUIDITY CREDIT REGISTRY</div>
-                      <div><span className="text-[#FFFFFF] font-bold">F5 &lt;GO&gt;</span> - ACTIVE LOBBY STRATEGIES MAP & CHANNELS</div>
-                      <div><span className="text-[#FFFFFF] font-bold">F6 &lt;GO&gt;</span> - DYNASTY SOMATIC HEIRS GENEALOGY</div>
-                      <div><span className="text-[#FFFFFF] font-bold">F7 &lt;GO&gt;</span> - INTEL STRIKES AND STAFF DISPATCH MATRIX</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-1.5">
+                  <div className="border border-[#1e2535] p-2.5 bg-[#141920] rounded-terminal">
+                    <h3 className="text-white font-bold text-[10px] mb-1.5 border-b border-[#1e2535] pb-1">FUNCTION SHORTCUTS</h3>
+                    <div className="space-y-1 font-mono text-[9.5px] text-slate-300">
+                      <div><span className="text-[#00c2ff] font-bold">F1 &lt;GO&gt;</span> - ACTIVE REQUISITIONS OPERATION GUIDE MANUAL</div>
+                      <div><span className="text-[#00c2ff] font-bold">F2 &lt;GO&gt;</span> - OPEN INTERACTION SYMBOLS TRADING PANEL</div>
+                      <div><span className="text-[#00c2ff] font-bold">F3 &lt;GO&gt;</span> - CORPORATE PRIVATE MARGINS DISCHARGE DIRECTIVES</div>
+                      <div><span className="text-[#00c2ff] font-bold">F4 &lt;GO&gt;</span> - SOVEREIGN DEBUREAUCRACY REGISTERED STATS</div>
+                      <div><span className="text-[#00c2ff] font-bold">F5 &lt;GO&gt;</span> - ACTIVE EMBASSY CONTROLS LOBBYING INTERFACE</div>
+                      <div><span className="text-[#00c2ff] font-bold">F6 &lt;GO&gt;</span> - DYNAST CHROMOSOMAL AND TRAITS MATRIX</div>
+                      <div><span className="text-[#00c2ff] font-bold">F7 &lt;GO&gt;</span> - INTEL BOMB STRIKES & INFORMERS RECRUIT UNIT</div>
+                      <div><span className="text-[#00c2ff] font-bold">F8 &lt;GO&gt;</span> - FUND OPERATIONS PERFORMANCE & AI ANALYSTS (AUM)</div>
+                      <div><span className="text-[#00c2ff] font-bold">F9 &lt;GO&gt;</span> - SECTORS HEATMAP & MACRO INDEX GRIDS</div>
                     </div>
                   </div>
 
-                  <div className="border border-[#FFB000]/40 p-1 bg-black">
-                    <h3 className="text-[#FFFFFF] font-bold text-[10px] mb-1 border-b border-[#FFB000]/20 pb-0.5">DIRECT TRANSACTION DIALECTICS (CLI RUNNERS)</h3>
-                    <div className="space-y-0.5 font-mono text-[9px]">
-                      <div><span className="text-[#00FF00] font-bold">BUY &lt;SYM&gt; &lt;PRC&gt; &lt;QTY&gt; &lt;GO&gt;</span> - LIMIT BUY</div>
-                      <div><span className="text-[#FF0000] font-bold">SELL &lt;SYM&gt; &lt;PRC&gt; &lt;QTY&gt; &lt;GO&gt;</span> - LIMIT SELL</div>
-                      <div><span className="text-[#FFFFFF] font-bold">DEBT &lt;NAT&gt; &lt;VAL&gt; &lt;GO&gt;</span> - PURCHASE SOVEREIGN DEBT BONDS</div>
-                      <div><span className="text-[#FFFFFF] font-bold">OVERRIDES &lt;NAT&gt; &lt;GO&gt;</span> - COMMENCE PRINTING POWER PRESS</div>
-                      <div><span className="text-[#FFFFFF] font-bold">STRIKE &lt;NAT&gt; &lt;SYM&gt; &lt;GO&gt;</span> - ACCELERATE NARRATIVE BOMBER</div>
-                      <div><span className="text-[#FFFFFF] font-bold">LAYOFFS &lt;SYM&gt; &lt;GO&gt;</span> - DEPRIVE 20% OF WORK FORCE FROM PAY</div>
-                      <div><span className="text-[#FFFFFF] font-bold">TAKEOVER &lt;SYM&gt; &lt;GO&gt;</span> - ENGAGE COMPELLED CORPORATE ACQUISITION</div>
-                      <div><span className="text-[#FFFFFF] font-bold">SOMATIC &lt;GO&gt;</span> - EXECUTE HEIR CHROMOSOMAL UPGRADINGS</div>
+                  <div className="border border-[#1e2535] p-2.5 bg-[#141920] rounded-terminal">
+                    <h3 className="text-white font-bold text-[10px] mb-1.5 border-b border-[#1e2535] pb-1">DIRECT TRANSACTION CLI DIALECTICS</h3>
+                    <div className="space-y-1 font-mono text-[9.5px] text-slate-300">
+                      <div><span className="text-[#00ff88] font-bold">BUY &lt;TICKER&gt; &lt;PRICE&gt; &lt;QTY&gt; &lt;GO&gt;</span> - SUBMIT LONG/COVER CONTRACT</div>
+                      <div><span className="text-[#ff3b5c] font-bold">SELL &lt;TICKER&gt; &lt;PRICE&gt; &lt;QTY&gt; &lt;GO&gt;</span> - SUBMIT SHORT/DUMP SELL CONTRACT</div>
+                      <div><span className="text-[#e8edf5] font-bold">DEBT &lt;NAT&gt; &lt;VAL&gt; &lt;GO&gt;</span> - PURCHASE SOVEREIGN DEBT BONDS</div>
+                      <div><span className="text-[#e8edf5] font-bold">OVERRIDES &lt;NAT&gt; &lt;GO&gt;</span> - OVERRIDE CB MONETERIZATION (PUPPET PRESS)</div>
+                      <div><span className="text-[#e8edf5] font-bold">STRIKE &lt;NAT&gt; &lt;SYM&gt; &lt;GO&gt;</span> - INITIATE NARRATIVE DISINFO WARFARE</div>
+                      <div><span className="text-[#e8edf5] font-bold">LAYOFFS &lt;SYM&gt; &lt;GO&gt;</span> - RESTRUCTURE CORPORATE WORKFORCE (EMIT 20% LABORS)</div>
+                      <div><span className="text-[#e8edf5] font-bold">TAKEOVER &lt;SYM&gt; &lt;GO&gt;</span> - ACQUIRE PRIVATE COMPANY BOARD CONTROL</div>
                     </div>
                   </div>
                 </div>
 
-                <div className="border border-[#FFB000]/20 p-1 mt-1 bg-black">
-                  <h4 className="text-[#FFFFFF] font-bold text-[9px] mb-0.5">NOTICE</h4>
-                  <p className="text-[9px] text-[#FFFFFF]/70">
-                    INTERACTIVE LABELS IN SECTOR PANELS DISPATCH TO THE BBG_CONSOLE CONVENIENTLY UPON MOUSE ACTIONS.
+                <div className="border border-[#1e2535] p-2 bg-[#141920] rounded-terminal mt-2">
+                  <h4 className="text-[#00c2ff] font-bold text-[9.5px] mb-1">INTERACTIVE DESK GUIDELINES</h4>
+                  <p className="text-[9px] text-[#e8edf5]/80 leading-normal">
+                    PORTFOLIOS EXECUTIONS DIRECTLY MAP ONTO ACTIVE DOCK GRIDS. USE PHYSICAL ACTION BUTTONS TO AUTO-TRIGGER COMMAND PARAMETERS ON DEMAND.
                   </p>
                 </div>
               </div>
             )}
             {activeTab === 'TRADING' && (
-              <div className="h-full flex overflow-hidden bg-black">
-                <div className="w-[180px] border-r border-[#FFB000]/20 bg-black flex flex-col overflow-y-auto shrink-0 select-none">
-                  <div className="p-1 border-b border-[#FFB000]/20 text-[9px] font-bold text-center text-[#FFB000] bg-[#FFB000]/10">EQUITY TICKER SYMBOLS</div>
+              <div className="h-full flex overflow-hidden bg-[#0a0c0f]">
+                <div className="w-[185px] border-r border-[#1e2535] bg-[#0f1318] flex flex-col overflow-y-auto shrink-0 select-none rounded-terminal mr-2">
+                  <div className="p-2 border-b border-[#1e2535] text-[9.5px] font-bold text-center text-[#00c2ff] bg-[#141920] uppercase font-terminal">TRADING TICKERS</div>
                   {Object.keys(gameState.markets).map(sym => (
                     <button
                       key={sym}
                       onClick={() => executeUnifiedCommand(`${sym} <GO>`)}
-                      className={`text-left p-1 text-[11px] border-b border-[#FFB000]/10 cursor-pointer flex justify-between items-center transition-all ${selectedTicker === sym ? 'bg-[#FFB000]/20 text-[#FFB000] font-bold' : 'text-[#FFFFFF] hover:bg-[#FFB000]/10'}`}
+                      className={`text-left p-2 text-[11px] border-b border-[#1e2535] cursor-pointer flex justify-between items-center transition-all font-terminal ${selectedTicker === sym ? 'bg-[#1a2030] text-[#00c2ff] font-bold border-l-2 border-l-[#00c2ff]' : 'text-slate-300 hover:bg-[#141920]'}`}
                     >
                       <span>{sym}</span>
-                      <span className="text-[10px] font-mono text-[#00FF00]">${gameState.markets[sym]?.currentPrice.toFixed(2)}</span>
+                      <span className="text-[10px] text-[#00ff88] font-bold font-terminal">${gameState.markets[sym]?.currentPrice.toFixed(2)}</span>
                     </button>
                   ))}
                 </div>
-                <div className="flex-1 h-full bg-black">
+                <div className="flex-1 h-full bg-[#0a0c0f]">
                   {gameState && (
                     <TradingViewChart 
                       state={gameState} 
@@ -708,6 +961,7 @@ export default function App() {
                     if (targetNode) {
                       targetNode.playerControlWeight = Math.min(100, targetNode.playerControlWeight + 15);
                       logToTerminal(`LOBBY CONTRACT: Contributed $${amt.toLocaleString()} to global lobby target ${targetNode.name}. Captured weights spiked to ${targetNode.playerControlWeight.toFixed(1)}%.`);
+                      playSyntheticSound('order');
                     }
                     return next;
                   });
@@ -743,106 +997,174 @@ export default function App() {
                 onNarrativeBomb={handleNarrativeBomb}
               />
             )}
+            {activeTab === 'OPERATION' && (
+              <FundOpsPanel
+                state={gameState}
+                onHireAnalyst={handleHireAnalyst}
+                onFireAnalyst={handleFireAnalyst}
+                onSendLPReport={handleSendLPReport}
+                lpResponse={lpResponse}
+                lpLoading={lpLoading}
+              />
+            )}
+            {activeTab === 'MARKETS' && (
+              <MarketsHeatmap
+                state={gameState}
+                onSelectTicker={setSelectedTicker}
+                activeTicker={selectedTicker}
+              />
+            )}
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Player Balance status + Geopolitics metrics */}
-        <div className="w-[320px] bg-black flex flex-col overflow-y-auto shrink-0 select-none p-1 gap-2.5 z-10 border-l border-[#FFB000]/20">
+        {/* RIGHT COLUMN: LONG / SHORT PORTFOLIO LEDGER + PERSISTENT Sovereign AI ANALYST CHAT */}
+        <div className="w-[325px] bg-[#0a0c0f] flex flex-col overflow-y-auto shrink-0 select-none p-2 gap-2.5 z-10 border-l border-[#1e2535]">
           
-          {/* Section: Wealth Ledger */}
-          <div className="border border-[#FFB000]/30 bg-black p-1.5 flex flex-col gap-1 rounded-none">
-            <h3 className="text-[#FFB000] font-mono font-bold uppercase text-[9px] tracking-tight flex items-center gap-1">
-              <Pocket className="w-3 h-3 text-[#FFB000]" />
-              DYNASTY BALANCE SHEET & REQUISITIONS
+          {/* Section A: Long & Short positions ledger table */}
+          <div className="border border-[#1e2535] bg-[#0f1318] p-2.5 flex flex-col gap-1.5 rounded-terminal">
+            <h3 className="text-white font-display font-medium uppercase text-[10px] tracking-tight border-b border-[#1e2535] pb-1 flex justify-between items-center">
+              <span>Position Registries</span>
+              <span className="text-[#00ff88] text-[9px] font-mono">LIVE_LEDGER</span>
             </h3>
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[8px] text-white/50 uppercase tracking-wider">LIQUID ACCOUNTING BAL</span>
-              <span className="text-lg font-mono font-bold text-[#00FF00] tracking-tight">
-                ${gameState.player.cash.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </span>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-1 text-[9px] border-t border-[#FFB000]/20 pt-1 font-mono">
-              <div>
-                <span className="text-white/50 block text-[8px] uppercase">PRESTIGE INDEX:</span>
-                <span className="text-[#00FF00] font-bold text-xs">{gameState.dynasty.prestige.toFixed(1)} PTS</span>
+
+            {/* LONG LIST */}
+            <div>
+              <span className="text-[8px] text-[#00ff88] font-bold block mb-1 uppercase tracking-wider font-terminal">// LONG CONTRACTS</span>
+              <div className="flex flex-col gap-1 text-[10px] max-h-[110px] overflow-y-auto font-terminal">
+                {(Object.entries(gameState.player.assets.stocks) as [string, number][]).filter(([_, qty]) => qty > 0).length === 0 ? (
+                  <span className="text-slate-500 text-[9px] block">NO LONG PRIVATE EQUITY POSSESSIONS</span>
+                ) : (
+                  (Object.entries(gameState.player.assets.stocks) as [string, number][]).map(([tk, qty]) => {
+                    if (qty <= 0) return null;
+                    const price = gameState.markets[tk]?.currentPrice || 0;
+                    return (
+                      <div key={tk} className="flex justify-between items-center border-b border-slate-900 pb-0.5">
+                        <span className="text-white font-bold">{tk} ({qty.toLocaleString()} Shrs)</span>
+                        <span className="text-[#00ff88] font-bold">${(qty * price).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                      </div>
+                    );
+                  })
+                )}
               </div>
-              <div>
-                <span className="text-white/50 block text-[8px] uppercase">DYNASTIC HEIRS:</span>
-                <span className="text-white font-bold text-xs uppercase">GEN {gameState.dynasty.generation}</span>
+            </div>
+
+            {/* SHORT LIST */}
+            <div className="mt-2 text-terminal font-terminal border-t border-[#1e2535] pt-2">
+              <span className="text-[8px] text-[#ff3b5c] font-bold block mb-1 uppercase tracking-wider font-terminal">// SHORT CONTRACTS</span>
+              <div className="flex flex-col gap-1 text-[10px] max-h-[110px] overflow-y-auto font-terminal">
+                {(Object.entries(gameState.shorts || {}) as [string, { qty: number; avgPrice: number }][]).filter(([_, data]) => data && data.qty > 0).length === 0 ? (
+                  <span className="text-slate-500 text-[9px] block">NO SHORT PRIVATE ACCOUNT LIABILITIES</span>
+                ) : (
+                  (Object.entries(gameState.shorts) as [string, { qty: number; avgPrice: number }][]).map(([tk, data]) => {
+                    if (!data || data.qty <= 0) return null;
+                    const price = gameState.markets[tk]?.currentPrice || 0;
+                    return (
+                      <div key={tk} className="flex justify-between items-center border-b border-slate-900 pb-0.5">
+                        <span className="text-slate-200">{tk} ({data.qty.toLocaleString()} Shrs)</span>
+                        <span className="text-[#ff3b5c] font-bold">-${(data.qty * price).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
 
-          {/* Section: Sovereign reserves metrics */}
-          <div className="border border-[#FFB000]/20 bg-black p-1.5 flex flex-col gap-1 rounded-none">
-            <h3 className="text-[#FFB000] font-mono font-bold uppercase text-[9px] tracking-tight flex items-center gap-1">
-              <Globe className="w-3 h-3 text-[#FFB000]" />
-              SOVEREIGN BOND REGISTRY
+          {/* Section B: Persistent Sovereign AI Analyst chat with Monospaced Prompt */}
+          <div className="border border-[#1e2535] bg-[#0f1318] rounded-terminal p-2.5 flex-1 flex flex-col overflow-hidden">
+            <h3 className="text-[#00c2ff] font-display font-medium uppercase text-[10px] tracking-tight border-b border-[#1e2535] pb-1 flex justify-between items-center shrink-0 select-none">
+              <span>SOVEREIGN AI ANALYST DESK</span>
+              <span className="text-slate-500 text-[8.5px] font-mono">ONLINE // FLASH_LINK</span>
             </h3>
-            
-            <div className="flex flex-col gap-1 font-mono text-[9px]">
-              {Object.values(gameState.countries).map((c: any) => (
-                <div key={c.id} className="bg-black p-1 border border-[#FFB000]/15 flex justify-between items-center gap-1.5">
-                  <div>
-                    <span className="font-bold text-white text-[10px]">{c.name.substring(0, 15)}</span>
-                    <span className="text-[8px] text-[#FFB000] block uppercase mt-0.5">UNEMPL: {(c.unemployment * 100).toFixed(1)}%</span>
+
+            {/* Chat list viewport */}
+            <div className="flex-1 overflow-y-auto flex flex-col gap-2 p-1 font-terminal my-2">
+              {(gameState.chatLogs || []).map((log, idx) => (
+                <div 
+                  key={idx} 
+                  className={`p-1.5 rounded-terminal text-[10px] leading-relaxed max-w-[92%] ${log.sender === 'user' ? 'bg-[#1a2030] text-slate-100 self-end border border-[#1e2535]' : 'bg-[#141920] text-slate-300 self-start border border-[#2a3550] border-l-2 border-l-[#00c2ff]'}`}
+                >
+                  <div className="flex justify-between text-[8px] opacity-50 mb-0.5 font-terminal">
+                    <span>{log.sender === 'user' ? 'MANAGER' : 'SOVEREIGN_AI'}</span>
+                    <span>{log.timestamp}</span>
                   </div>
-                  <div className="text-right">
-                    <span className="text-[#00FF00] font-bold block">${(c.gdp / 1e12).toFixed(2)}T GDP</span>
-                    <span className="text-[#FF0000] block text-[8px] uppercase mt-0.5">UNREST: {c.unrest.toFixed(0)}%</span>
-                  </div>
+                  <p className="whitespace-pre-line leading-normal font-medium">{log.text}</p>
                 </div>
               ))}
+              {chatLoading && (
+                <div className="bg-[#141920] text-slate-400 p-2 rounded-terminal max-w-[80%] self-start flex items-center gap-1.5 font-terminal text-[10px] border border-[#1e2535]">
+                  <span className="w-2 h-2 rounded-full bg-[#00c2ff] animate-ping" />
+                  ANALYZING RISK RESERVES MATRIX...
+                </div>
+              )}
             </div>
-          </div>
 
-          {/* Section: Cybernetic systems indicators */}
-          <div className="border border-[#FFB000]/20 bg-black p-1.5 flex flex-col gap-1 rounded-none text-[9px]">
-            <h3 className="text-[#FFB000] font-mono font-bold uppercase text-[9px] tracking-tight flex items-center gap-1">
-              <Activity className="w-3 h-3 text-[#FFB000]" />
-              SYSTEMIC RISK & LIQUIDITY
-            </h3>
-            
-            <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-center">
-                <span className="text-white/50 uppercase text-[8px] tracking-wider">GLOBAL STABILITY:</span>
-                <span className={`font-bold ${gameState.globalStability > 60 ? 'text-[#00FF00]' : 'text-[#FF0000] animate-pulse'}`}>{gameState.globalStability}%</span>
-              </div>
-              <div className="h-1 bg-black border border-[#FFB000]/20 rounded-none overflow-hidden">
-                <div 
-                  className={`h-full ${gameState.globalStability > 60 ? 'bg-[#00FF00]' : 'bg-[#FF0000]'}`} 
-                  style={{ width: `${gameState.globalStability}%` }}
-                />
-              </div>
-
-              <div className="flex justify-between items-center mt-0.5">
-                <span className="text-white/50 uppercase text-[8px] tracking-wider">WORLD TRAUMA DEBUFF:</span>
-                <span className="text-[#FF0000] font-bold">{gameState.globalSuffering}%</span>
-              </div>
-              <div className="h-1 bg-black border border-[#FFB000]/20 rounded-none overflow-hidden">
-                <div className="h-full bg-[#FF0000]" style={{ width: `${gameState.globalSuffering}%` }} />
-              </div>
+            {/* Monospaced Input Box */}
+            <div className="flex gap-1.5 shrink-0 border-t border-[#1e2535] pt-2 font-mono">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSendChat(); }}
+                placeholder="PROMPT AI DESK..."
+                className="flex-1 bg-[#141920] border border-[#1e2535] px-2 py-1 outline-none text-[10.5px] text-[#00c2ff] font-terminal rounded-terminal focus:border-[#00c2ff] placeholder:text-slate-600"
+              />
+              <button
+                onClick={handleSendChat}
+                disabled={chatLoading || !chatInput.trim()}
+                className="bg-[#00c2ff] text-[#0a0c0f] hover:bg-opacity-90 font-bold px-2 rounded-terminal text-[10px] cursor-pointer"
+              >
+                ASK
+              </button>
             </div>
           </div>
 
         </div>
       </div>
 
+      {/* 4. HIGH DENSITY BOTTOM MARQUEE TICKER OF COMMODITIES */}
+      <div className="h-5 bg-[#141920] border-t border-[#1e2535] flex items-center shrink-0 z-10 overflow-hidden relative select-none">
+        <div className="animate-ticker flex gap-8 items-center font-terminal py-0.5 text-[9.5px]">
+          {/* Market prices ticker list */}
+          {Object.values(gameState.markets).map((m: any) => {
+            const hist = m.history[m.history.length - 2];
+            const isUp = hist ? m.currentPrice >= hist.close : true;
+            return (
+              <span 
+                key={m.ticker} 
+                className={`font-semibold cursor-pointer tracking-wider font-terminal uppercase transition-colors duration-150 flex items-center gap-0.5 ${isUp ? 'text-[#00ff88]' : 'text-[#ff3b5c]'}`}
+                onClick={() => {
+                  executeUnifiedCommand(`${m.ticker} <GO>`);
+                }}
+              >
+                {m.ticker}: ${m.currentPrice.toFixed(2)} {isUp ? '▲' : '▼'}
+              </span>
+            );
+          })}
+          {/* Breaking alerts details marquee */}
+          <span className="text-slate-400 border-l border-[#1e2535] pl-6 uppercase tracking-widest font-bold">// SYSTEM REPORT DIRECTIVES:</span>
+          {combinedLogFeed.slice(0, 3).map((f, i) => (
+            <span key={i} className="text-white font-terminal uppercase font-bold text-[9px]">
+              [{f.time}] {f.text.substring(0, 60)}...
+            </span>
+          ))}
+        </div>
+      </div>
+
       {/* BOTTOM CLI PROMPT SHELL INPUT */}
-      <footer className="h-[140px] bg-black border-t border-[#FFB000]/30 flex flex-col shrink-0 font-mono z-10">
+      <footer className="h-[125px] bg-[#0f1318] border-t border-[#1e2535] flex flex-col shrink-0 font-mono z-10">
         
         {/* Terminal log history */}
-        <div className="flex-1 overflow-y-auto p-1.5 text-[10px] text-white flex flex-col gap-0.5 select-text scrollbar-thin bg-black">
+        <div className="flex-1 overflow-y-auto p-2 text-[10.5px] text-white flex flex-col gap-0.5 select-text scrollbar-thin bg-[#0a0c0f]">
           {terminalLogs.map((log, index) => {
             const isErr = log.startsWith('ERROR') || log.startsWith('REJECTED');
-            const isCmd = log.includes('OMEGA>');
+            const isCmd = log.includes('BBG>');
             return (
               <div 
                 key={index} 
-                className={`${isErr ? 'text-[#FF0000] font-bold' : isCmd ? 'text-[#FFB000] font-bold' : 'text-white/70'}`}
+                className={`font-terminal ${isErr ? 'text-[#ff3b5c] font-bold font-terminal' : isCmd ? 'text-[#00c2ff] font-bold font-terminal' : 'text-slate-300 font-terminal'}`}
               >
-                {isCmd ? <span className="text-[#FFB000] mr-1">&gt;</span> : <span className="text-white/20 mr-1">//</span>}
+                {isCmd ? <span className="text-[#00c2ff] mr-1">&gt;</span> : <span className="text-slate-600 mr-2">//</span>}
                 {log}
               </div>
             );
@@ -852,28 +1174,51 @@ export default function App() {
         {/* Input prompt bar */}
         <form 
           onSubmit={handleCLISubmit}
-          className="h-[28px] bg-black border-t border-[#FFB000]/30 flex items-center px-2 gap-1.5"
+          className="h-[28px] bg-[#141920] border-t border-[#1e2535] flex items-center px-3 gap-1.5 shrink-0"
         >
-          <TermIcon className="w-3 h-3 text-[#FFB000]" />
-          <span className="text-[#FFB000] font-bold text-[10px] tracking-tight shrink-0">BBG_CONSOLE_&gt;</span>
+          <TermIcon className="w-3.5 h-3.5 text-[#00c2ff]" />
+          <span className="text-[#00c2ff] font-bold text-[10.5px] tracking-tight shrink-0">BBG_SHELL_&gt;</span>
           <input 
             type="text" 
             value={cliInput}
             onChange={e => setCliInput(e.target.value)}
-            className="flex-1 bg-transparent border-none outline-none text-white text-[11px] caret-[#FFB000] font-mono focus:ring-0 placeholder:text-white/20"
-            placeholder="Type 'HELP <GO>' or use physical function keys above to navigate tabs."
+            className="flex-1 bg-transparent border-none outline-none text-[#e8edf5] text-[11px] caret-[#00c2ff] font-mono focus:ring-0 placeholder:text-slate-600 font-terminal"
+            placeholder="Type '/buy' or 'F1 <GO>' for directives manuals..."
             autoComplete="off"
           />
         </form>
       </footer>
 
-      {/* IMMERSIVE BAR FOOTER FOR ACTIVE SYSTEMS */}
-      <footer className="h-5 bg-[#FFB000] text-black text-[9px] flex items-center px-2 justify-between uppercase font-bold tracking-tight shrink-0 z-50">
-        <span>RUN: 10,000 ACTIVE SEC</span>
-        <span>CLOCK: {gameState.date}-T09:42:00Z</span>
-        <span>ENCRYPT: BBG_DES_V3_SECURE</span>
-        <span>SYS: ONLINE</span>
+      {/* SYSTEMIC IMMERSIVE STATIC STATUS HEADLINES footer BAR */}
+      <footer className="h-[18px] bg-[#00c2ff] text-black text-[9px] flex items-center px-2.5 justify-between uppercase font-black tracking-wider shrink-0 z-50">
+        <span>RUNNING telemetry DESK STATUS</span>
+        <span>LEVEL STAGE: {gameState.careerStage}</span>
+        <span>CLOCK TIME: {gameState.date}-T09:00:15Z</span>
+        <span>SYS CODE: BBG_GLOBAL_SOVEREIGN_SYSTEM_ONLINE</span>
       </footer>
+
+      {/* CAREER STAGE PROMOTION LEVEL-UP CELEBRATION MODAL OVERLAY */}
+      {showLevelUpCelebration && (
+        <div className="fixed inset-0 z-50 bg-[#0a0c0f]/90 flex flex-col items-center justify-center p-4 text-center select-none font-mono">
+          <div className="max-w-xl bg-[#0f1318] border-2 border-[#00c2ff] p-6 rounded-terminal flex flex-col items-center gap-4 shadow-[0_0_30px_rgba(0,194,255,0.4)] animate-pulse">
+            <Sparkles className="w-12 h-12 text-[#00ff88] animate-bounce" />
+            <h1 className="text-2xl font-display font-medium text-white tracking-wider glow-cyan">CAREER TITLE ASCENDED!</h1>
+            <p className="text-slate-400 text-xs tracking-wider uppercase">Institutional Allocations Parameter Recalculated</p>
+            <div className="bg-[#141920] border border-[#1e2535] p-3 rounded-terminal uppercase font-terminal text-[#00ff88] text-[11px]">
+              ASCENDED LEVEL DESK STATUS TO <span className="text-white font-bold block mt-1 text-sm glow-green">{gameState.careerStage}</span>
+            </div>
+            <p className="text-[10.5px] text-slate-300 leading-normal max-w-md font-terminal">
+              WALL STREET PRIME HOUSES HAVE CONFRIMED APEX CLEARANCE LEVEL INCREASES. EXTERNAL SYSTEM CONTRACTS APPOINTED.
+            </p>
+            <button 
+              onClick={() => { setShowLevelUpCelebration(false); playSyntheticSound('tick'); }}
+              className="mt-2 bg-[#00c2ff] text-[#0a0c0f] font-bold px-4 py-1.5 rounded-terminal uppercase tracking-widest text-[10px] cursor-pointer"
+            >
+              APPROVE DOCK INTERFACE CHANGES
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

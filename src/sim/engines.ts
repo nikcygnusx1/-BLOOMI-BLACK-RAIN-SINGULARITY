@@ -37,6 +37,9 @@ export class GeopoliticalOmegaEngine {
     // 7. Global Macro Solvency check
     state = this.tickGlobalSolvency(state);
 
+    // 8. Run Advanced Hedge Fund Mechanics (leveraged risk, shorts, salary, career stages)
+    state = this.tickExtendedMechanics(state);
+
     return state;
   }
 
@@ -281,7 +284,17 @@ export class GeopoliticalOmegaEngine {
     // Buyer Cash Flow debit
     if (buyer === 'player_dynasty') {
       state.player.cash -= totalCost;
-      state.player.assets.stocks[ticker] = (state.player.assets.stocks[ticker] || 0) + qty;
+      const shortData = state.shorts[ticker];
+      if (shortData && shortData.qty > 0) {
+        const covered = Math.min(qty, shortData.qty);
+        shortData.qty -= covered;
+        const remains = qty - covered;
+        if (remains > 0) {
+          state.player.assets.stocks[ticker] = (state.player.assets.stocks[ticker] || 0) + remains;
+        }
+      } else {
+        state.player.assets.stocks[ticker] = (state.player.assets.stocks[ticker] || 0) + qty;
+      }
     } else {
       const bFund = state.hedgeFunds.find(f => f.id === buyer);
       if (bFund) {
@@ -293,7 +306,18 @@ export class GeopoliticalOmegaEngine {
     // Seller Cash Flow credit
     if (seller === 'player_dynasty') {
       state.player.cash += totalCost;
-      state.player.assets.stocks[ticker] = Math.max(0, (state.player.assets.stocks[ticker] || 0) - qty);
+      const owned = state.player.assets.stocks[ticker] || 0;
+      if (qty > owned) {
+        state.player.assets.stocks[ticker] = 0;
+        const excess = qty - owned;
+        if (!state.shorts[ticker]) {
+          state.shorts[ticker] = { qty: 0, avgPrice: 0 };
+        }
+        state.shorts[ticker].qty += excess;
+        state.shorts[ticker].avgPrice = price;
+      } else {
+        state.player.assets.stocks[ticker] = owned - qty;
+      }
     } else {
       const sFund = state.hedgeFunds.find(f => f.id === seller);
       if (sFund) {
@@ -657,4 +681,249 @@ export class GeopoliticalOmegaEngine {
 
     return state;
   }
+
+  // --- VIII. ADVANCED HEDGE FUND MECHANICS ENGINE ---
+  private static tickExtendedMechanics(state: SimState): SimState {
+    const defaultDateString = state.date;
+
+    // 1. Deduct Weekly Salary Costs of Hired AI Analysts
+    const totalWeeklyAnalystSalaries = (state.hiredAnalysts || []).reduce((sum, a) => sum + Math.floor(a.salary / 4), 0);
+    if (totalWeeklyAnalystSalaries > 0) {
+      state.player.cash -= totalWeeklyAnalystSalaries;
+      if (state.currentTick % 4 === 0) {
+        state.cables.push({
+          time: `${defaultDateString} 17:00:00`,
+          source: 'FUND_OPERATIONS',
+          message: `EXPENSES FILED: Deducted $${totalWeeklyAnalystSalaries.toLocaleString()} in AI Analyst salary allocations. Operational capital deducted.`,
+          classification: 'CONFIDENTIAL'
+        });
+      }
+    }
+
+    // 2. Generate Weekly/Monthly Research Reports for Hired Analysts
+    (state.hiredAnalysts || []).forEach((analyst) => {
+      // Every 4 ticks (approx 1 month), generate a specific research note
+      if (state.currentTick % 4 === 0) {
+        // Pick a random market ticker to review
+        const tickers = Object.keys(state.markets);
+        const randomTicker = tickers[Math.floor(Math.random() * tickers.length)] || 'APLH';
+        const currentPrice = state.markets[randomTicker]?.currentPrice || 100;
+        
+        let reportText = '';
+        if (analyst.specialty.includes('AI')) {
+          reportText = `[${analyst.specialty.toUpperCase()}] Model pipeline validations indicate 40% order density accumulation at support desk. Retaining high Alpha conviction on support margins at $${currentPrice.toFixed(2)}. Outperform rating validated.`;
+        } else if (analyst.specialty.includes('Macro')) {
+          reportText = `[${analyst.specialty.toUpperCase()}] Sovereign yield spreads pricing in potential budget tightening loops inside Western zones. High contagion risk detected; buy protective short hedges or re-allocate to swiss cash reserves.`;
+        } else {
+          reportText = `[${analyst.specialty.toUpperCase()}] Transgenic genome somatic sequencing core yields highly favorable clinical approvals across Swiss sectors. Buy side bids rising on GENE stocks. Target re-rated upward.`;
+        }
+
+        analyst.reports.unshift({
+          date: state.date,
+          text: reportText
+        });
+
+        // Limit to 10 reports archived
+        if (analyst.reports.length > 10) analyst.reports.pop();
+
+        state.cables.push({
+          time: `${defaultDateString} 09:15:00`,
+          source: 'ANALYST_DESK',
+          message: `RESEARCH FILED: Analyst ${analyst.name.toUpperCase()} submitted fresh conviction analytics on ${randomTicker}.`,
+          classification: 'CONFIDENTIAL'
+        });
+      }
+    });
+
+    // 3. Compute Net Asset Value (AUM) and Net Equity
+    // A. Long positions value
+    let stocksValue = 0;
+    Object.entries(state.player.assets.stocks).forEach(([ticker, qty]) => {
+      const price = state.markets[ticker]?.currentPrice || 0;
+      stocksValue += qty * price;
+    });
+
+    // B. Crypto positions value
+    let cryptoValue = 0;
+    Object.entries(state.player.assets.crypto).forEach(([ticker, qty]) => {
+      const price = state.markets[ticker]?.currentPrice || 0;
+      cryptoValue += qty * price;
+    });
+
+    // C. Sovereign bonds values
+    let bondsValue = 0;
+    Object.entries(state.player.assets.bonds).forEach(([countryId, heldAmt]) => {
+      bondsValue += heldAmt; // held amount acts directly as debt principal asset
+    });
+
+    // D. Short positions liabilities value
+    let shortLiabilitiesValue = 0;
+    Object.entries(state.shorts || {}).forEach(([ticker, data]) => {
+      if (data && data.qty > 0) {
+        const price = state.markets[ticker]?.currentPrice || 0;
+        shortLiabilitiesValue += data.qty * price;
+      }
+    });
+
+    // E. Total Net Equity Calculation
+    const netEquity = state.player.cash + stocksValue + cryptoValue + bondsValue - shortLiabilitiesValue;
+    const grossPositionsValue = stocksValue + cryptoValue + shortLiabilitiesValue;
+
+    // Track return volatility logs
+    const prevAUM = state.highWaterMark || netEquity;
+    const calculatedWeeklyReturn = prevAUM > 0 ? (netEquity - prevAUM) / prevAUM : 0;
+    // Cap returned values
+    const finalReturnVal = isNaN(calculatedWeeklyReturn) ? 0 : Math.max(-0.95, Math.min(1.5, calculatedWeeklyReturn));
+
+    state.lastDailyReturns.push(finalReturnVal);
+    if (state.lastDailyReturns.length > 30) state.lastDailyReturns.shift();
+
+    const benchReturn = (Math.random() - 0.47) * 0.012; // positive index drift
+    state.benchmarkReturns.push(benchReturn);
+    if (state.benchmarkReturns.length > 30) state.benchmarkReturns.shift();
+
+    // Update Peak high-water-mark for Drawdown checking
+    state.highWaterMark = Math.max(state.highWaterMark || netEquity, netEquity);
+
+    // 4. Check Margin Call & Force-Liquidation under leverage (3x gross ceiling, 15% liquidation floor)
+    if (grossPositionsValue > 0 && state.leverageEnabled) {
+      const marginRatio = netEquity / grossPositionsValue;
+
+      if (marginRatio < 0.15) {
+        // LIQUIDATION CATACLYSM SEQUENCES TRIGGERED
+        state.marginCallWarning = false;
+
+        // Force-sell all stock positions, cover all shorts at horrible execution support range
+        // Levy heavy liquidation fees (15% penalty fee loss inside cash pools)
+        let cashRecovered = 0;
+
+        // A. Close Stock long trades
+        Object.entries(state.player.assets.stocks).forEach(([ticker, qty]) => {
+          if (qty > 0) {
+            const price = state.markets[ticker]?.currentPrice || 10;
+            // liquidate long with 10% slippage penalty
+            cashRecovered += qty * price * 0.90;
+          }
+        });
+        state.player.assets.stocks = {};
+
+        // B. Close Crypto long trades
+        Object.entries(state.player.assets.crypto).forEach(([ticker, qty]) => {
+          if (qty > 0) {
+            const price = state.markets[ticker]?.currentPrice || 10;
+            cashRecovered += qty * price * 0.90;
+          }
+        });
+        state.player.assets.crypto = {};
+
+        // C. Cover Short trade debts (forces cash deductions at 10% premium penalty)
+        let coverCost = 0;
+        Object.entries(state.shorts || {}).forEach(([ticker, data]) => {
+          if (data && data.qty > 0) {
+            const price = state.markets[ticker]?.currentPrice || 10;
+            coverCost += data.qty * price * 1.10;
+          }
+        });
+        state.shorts = {};
+
+        state.player.cash = state.player.cash + cashRecovered - coverCost;
+        // Liquidation structural fine penalty fee (12% of final cash)
+        state.player.cash = Math.floor(state.player.cash * 0.88);
+
+        // Record major Trauma event
+        state.traumaLog.push({
+          id: Math.random().toString(),
+          tick: state.currentTick,
+          date: state.date,
+          eventType: 'MARKET_CRASH',
+          description: `MARGIN LIQUIDATION: Scythe Quant Algorithmic engine stop-loss hunted fund positions. Gross assets force-liquidated. High execution penalty fees applied.`,
+          severity: 10
+        });
+
+        state.cables.push({
+          time: `${defaultDateString} 16:03:00`,
+          source: 'RISK_DESK_CORE',
+          message: `FORCE LIQUIDATED: Core equity collapsed below Basel risk levels (Margin was ${(marginRatio*100).toFixed(1)}%). Sponsoring portfolio closed out completely. Penalty fees applied.`,
+          classification: 'EYES_ONLY'
+        });
+
+      } else if (marginRatio < 0.25) {
+        state.marginCallWarning = true;
+        if (state.currentTick % 2 === 0) {
+          state.cables.push({
+            time: `${defaultDateString} 11:30:00`,
+            source: 'MARGIN_DESK',
+            message: `WARNING: Gross Margin ratio fell to ${(marginRatio * 100).toFixed(1)}%. Prepare for forced portfolio closures at 15% Basel floor parameters. Infuse cash immediately.`,
+            classification: 'TOP_SECRET'
+          });
+        }
+      } else {
+        state.marginCallWarning = false;
+      }
+    }
+
+    // 5. Career Progression Levels checks
+    // Calculate Sharpe Ratio of returns
+    const count = state.lastDailyReturns.length || 1;
+    const avgRet = state.lastDailyReturns.reduce((sum, r) => sum + r, 0) / count;
+    const variance = state.lastDailyReturns.reduce((sum, r) => sum + Math.pow(r - avgRet, 2), 0) / count;
+    const vol = Math.sqrt(variance) || 0.01;
+    const annualizedVol = vol * Math.sqrt(52);
+    const annualizedRet = avgRet * 52;
+    // Sharpe = (annualizedRet - RiskFreeRate 4%) / annualizedVol
+    const sharpe = annualizedVol > 0.001 ? (annualizedRet - 0.04) / annualizedVol : 0.0;
+    
+    // Drawdown
+    const currentDrawdown = state.highWaterMark > netEquity ? ((state.highWaterMark - netEquity) / state.highWaterMark) * 100 : 0;
+
+    // Execute stage transitions
+    if (state.careerStage === 'Family Office') {
+      // Reqs: $100M total net Equity AND Sharpe >= 1.0 AND current drawdown is low
+      if (netEquity >= 100000000 && sharpe >= 1.0) {
+        state.careerStage = 'Emerging Manager';
+        state.highWaterMark = netEquity; // Reset drawdown peaks represent fresh stage launch
+        
+        state.traumaLog.push({
+          id: Math.random().toString(),
+          tick: state.currentTick,
+          date: state.date,
+          eventType: 'EUGENICS_EXP',
+          description: `CAREER LEVEL UP: Sovereign Fund validated by Wall Street prime houses. Raised $100M + from institutional LPs. Escaped Family Office tier. Unlocked unlimited 3x leverage clearance.`,
+          severity: 6
+        });
+
+        state.cables.push({
+          time: `${defaultDateString} 08:00:00`,
+          source: 'PRIME_BROKER_HQ',
+          message: `STAGE UNLOCKED: "EMERGING MANAGER" status granted. Basel asset parameters recalculated. Subscribing external LP capitals...`,
+          classification: 'TOP_SECRET'
+        });
+      }
+    } else if (state.careerStage === 'Emerging Manager') {
+      // Reqs: $1.0 Billion Net Equity AND max drawdown kept < 20% throughout
+      if (netEquity >= 1000000000 && currentDrawdown < 20) {
+        state.careerStage = 'Institutional Titan';
+        state.highWaterMark = netEquity;
+
+        state.traumaLog.push({
+          id: Math.random().toString(),
+          tick: state.currentTick,
+          date: state.date,
+          eventType: 'REVOLUTION',
+          description: `CAREER TITAN ASCENSION: Portfolio reaches Institutional Titan plateau ($1.0B AUM). Sovereign central bank nodes added to policy committees. Special asset classes cleared.`,
+          severity: 8
+        });
+
+        state.cables.push({
+          time: `${defaultDateString} 08:00:00`,
+          source: 'SEC_DESK_GLOBAL',
+          message: `STAGE UNLOCKED: "INSTITUTIONAL TITAN" status granted. Capital clearing networks bypassed. Core political weight increased 200%.`,
+          classification: 'EYES_ONLY'
+        });
+      }
+    }
+
+    return state;
+  }
 }
+

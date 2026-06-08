@@ -231,11 +231,31 @@ export function createInitialWorld(params: {
     { time: '2026-06-08 12:55:01', source: 'FED_RESERVE', message: 'Notice: Shadow repo rates spiking in dark pool clearance networks. Liquidity tightness observed.', classification: 'CONFIDENTIAL' as const }
   ];
 
+  const hiringPool = [
+    { id: 'al_1', name: 'Dominik Vance', salary: 150000, specialty: 'AI & Semiconductors Quant', tier: 'Senior' },
+    { id: 'al_2', name: 'Sophia Sterling', salary: 80000, specialty: 'Macro Sovereign Bonds', tier: 'Associate' },
+    { id: 'al_3', name: 'Dr. Evelyn Biotech', salary: 120000, specialty: 'Transgenic Eugenics & Pharma', tier: 'VP' }
+  ];
+
+  const initialChatLogs = [
+    { sender: 'analyst' as const, timestamp: '12:55:00', text: 'Sovereign AI Terminal connection established. Welcome, Manager. Ready to run multi-billion capital desk.' }
+  ];
+
   return {
     currentTick: 0,
     date: '2026-06-08',
     globalStability,
     globalSuffering,
+    careerStage: 'Family Office',
+    highWaterMark: params.capital,
+    shorts: {},
+    leverageEnabled: true,
+    marginCallWarning: false,
+    lastDailyReturns: [0.015, -0.005, 0.02, 0.01],
+    benchmarkReturns: [0.005, -0.002, 0.003, 0.008],
+    hiredAnalysts: [],
+    hiringPool,
+    chatLogs: initialChatLogs,
     player: {
       id: 'player_dynasty',
       name: params.name,
@@ -317,7 +337,46 @@ export function loadSimState(saveName: string = 'omega_autosave'): SimState | nu
   try {
     const raw = localStorage.getItem(saveName);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const loaded = JSON.parse(raw);
+    if (loaded) {
+      if (!loaded.hiredAnalysts) loaded.hiredAnalysts = [];
+      if (!loaded.hiringPool) {
+        loaded.hiringPool = [
+          { id: 'al_1', name: 'Dominik Vance', salary: 150000, specialty: 'AI & Semiconductors Quant', tier: 'Senior' },
+          { id: 'al_2', name: 'Sophia Sterling', salary: 80000, specialty: 'Macro Sovereign Bonds', tier: 'Associate' },
+          { id: 'al_3', name: 'Dr. Evelyn Biotech', salary: 120000, specialty: 'Transgenic Eugenics & Pharma', tier: 'VP' }
+        ];
+      }
+      if (!loaded.shorts) loaded.shorts = {};
+      if (!loaded.chatLogs) {
+        loaded.chatLogs = [
+          { sender: 'analyst', timestamp: '12:55:00', text: 'Sovereign AI Terminal connection established. Welcome, Manager.' }
+        ];
+      }
+      if (!loaded.lastDailyReturns) loaded.lastDailyReturns = [0.015, -0.005, 0.02, 0.01];
+      if (!loaded.benchmarkReturns) loaded.benchmarkReturns = [0.005, -0.002, 0.003, 0.008];
+      if (!loaded.highWaterMark) loaded.highWaterMark = loaded.player?.cash || 100000000;
+      if (!loaded.careerStage) loaded.careerStage = 'Family Office';
+      if (!loaded.cables) loaded.cables = [];
+      if (!loaded.traumaLog) loaded.traumaLog = [];
+      if (loaded.player) {
+        if (!loaded.player.assets) {
+          loaded.player.assets = {
+            stocks: {},
+            crypto: {},
+            bonds: {},
+            lobbyists: 0,
+            analysts: 0,
+            informants: 0
+          };
+        } else {
+          if (!loaded.player.assets.stocks) loaded.player.assets.stocks = {};
+          if (!loaded.player.assets.crypto) loaded.player.assets.crypto = {};
+          if (!loaded.player.assets.bonds) loaded.player.assets.bonds = {};
+        }
+      }
+    }
+    return loaded;
   } catch (e) {
     console.error('Failed to load state:', e);
     return null;

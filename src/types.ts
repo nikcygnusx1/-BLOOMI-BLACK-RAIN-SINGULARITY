@@ -154,6 +154,16 @@ export interface SimState {
   date: string; // Date string
   globalStability: number; // 0 to 100 base
   globalSuffering: number; // 0 to 100 base (Genetic capital ignores debuffs from high Global Suffering)
+  careerStage: 'Family Office' | 'Emerging Manager' | 'Institutional Titan';
+  highWaterMark: number;
+  shorts: Record<string, { qty: number; avgPrice: number }>;
+  leverageEnabled: boolean;
+  marginCallWarning: boolean;
+  lastDailyReturns: number[];
+  benchmarkReturns: number[];
+  hiredAnalysts: { id: string; name: string; salary: number; specialty: string; reports: { date: string; text: string }[] }[];
+  hiringPool: { id: string; name: string; salary: number; specialty: string; tier: string }[];
+  chatLogs: { sender: 'user' | 'analyst'; timestamp: string; text: string }[];
   player: {
     id: string;
     name: string;
