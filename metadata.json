@@ -1,6 +1,6 @@
 {
-  "name": "Global Sovereign Terminal",
-  "description": "Real-time global corporate, sovereign debt, and geopolitical influence tracking terminal.",
+  "name": "BLOOMI: Black Rain Singularity",
+  "description": "A high-stakes, hyper-immersive climate-finance sovereign simulation terminal.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
