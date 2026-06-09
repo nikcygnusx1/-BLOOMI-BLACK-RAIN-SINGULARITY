@@ -22,6 +22,11 @@ import { IntrusionTraceConsole } from './components/IntrusionTraceConsole';
 import { BloomiTradingTerminal } from './components/BloomiTradingTerminal';
 import { BunkerPanel } from './components/BunkerPanel';
 import { CodexTerminal } from './components/CodexTerminal';
+import { GothamTacticalMap } from './components/GothamTacticalMap';
+import { GovernmentPanel } from './components/GovernmentPanel';
+import { EconomyPanel } from './components/EconomyPanel';
+import { ArsenalPanel } from './components/ArsenalPanel';
+import { DiplomacyPanel } from './components/DiplomacyPanel';
 import { IntroCinematicOverlay } from './cinematic/IntroCinematicOverlay';
 import { VideoFeedPanel } from './modules/VideoFeed/VideoFeedPanel';
 import { PermanentVideoPanel } from './components/PermanentVideoPanel';
@@ -66,7 +71,7 @@ export default function App() {
     });
   }, []);
   const [activeTab, setActiveTab] = useState<'WORLD' | 'LAB_VIEW' | 'RESEARCH' | 'STAFF' | 'HELP' | 'TRADING' | 'CORPORATE' | 'MACRO' | 'INFLUENCE' | 'DYNASTY' | 'INTELLIGENCE' | 'OPERATION' | 'MARKETS' | 'AI_WAR' | 'SATELLITES' | 'DEBT' | 'SUPPLY_CHAINS' | 'SINGULARITY' | 'BUNKER' | 'CODEX' | 'COLLIDER' | 'VIDEO_FEED'>('SINGULARITY');
-  const [showCinematic, setShowCinematic] = useState(() => !sessionStorage.getItem('bloomi_intro_played'));
+  const [showCinematic, setShowCinematic] = useState(false);
   const [cinematicFading, setCinematicFading] = useState(false);
   const [selectedTicker, setSelectedTicker] = useState('APLH');
   const [selectedRegionId, setSelectedRegionId] = useState<string>('US');
@@ -996,6 +1001,11 @@ export default function App() {
     playSyntheticSound('tick');
 
     // New Bloomberg Keyboard Function Keys (Section 2.1 & 6.5)
+    if (cmd === 'F0' || cmd === 'F0 <GO>') {
+      setActiveTab('WORLD');
+      logToTerminal('COMMAND DESK: LOADED F0 [WORLD] GEOPOLITICAL PLANETARY MAP.');
+      return;
+    }
     if (cmd === 'F1' || cmd === 'F1 <GO>') {
       setActiveTab('LAB_VIEW');
       logToTerminal('COMMAND DESK: LOADED F1 [LAB_VIEW] CLIMATE GENOMIC CORED MAPS.');
@@ -1335,6 +1345,7 @@ export default function App() {
       <div className="h-7 bg-[#101318] border-b border-[#1e2530] flex items-center px-2 py-0.5 shrink-0 select-none z-30">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none w-full py-0.5">
           {[
+            { key: 'F0', id: 'WORLD' as const, label: 'TACTICAL_MAP' },
             { key: 'F1', id: 'LAB_VIEW' as const, label: 'LAB_VIEW' },
             { key: 'F2', id: 'MACRO' as const, label: 'MACRO' },
             { key: 'F3', id: 'DEBT' as const, label: 'DEBT_CDS' },
@@ -1465,6 +1476,12 @@ export default function App() {
               {resetConfirm ? 'CONFIRM RESET?' : 'RESET'}
             </button>
             <button 
+              onClick={() => { setShowCinematic(true); playSyntheticSound('open'); }} 
+              className="px-2 py-0.5 border border-[#ff6f00] text-[#ff6f00] hover:bg-[#ff6f00]/10 text-[9px] cursor-pointer font-bold rounded-terminal uppercase transition-all duration-100"
+            >
+              INTRO LORE
+            </button>
+            <button 
               onClick={() => { setIsPaused(!isPaused); playSyntheticSound('tick'); }} 
               className={`px-2 py-0.5 border text-[9px] cursor-pointer font-bold rounded-terminal uppercase transition-all duration-100 ${isPaused ? 'border-[#00ff88] text-[#00ff88] bg-[#00ff88]/10' : 'border-slate-500 text-slate-300'}`}
             >
@@ -1500,6 +1517,7 @@ export default function App() {
             
             <div className="grid grid-cols-2 gap-1 font-terminal">
               {[
+                { id: 'WORLD' as const, key: 'F0', label: 'WORLD_MAP', icon: Skull },
                 { id: 'LAB_VIEW' as const, key: 'F1', label: 'LAB_MAP', icon: FlaskConical },
                 { id: 'MACRO' as const, key: 'F2', label: 'MACRO_M', icon: Globe },
                 { id: 'DEBT' as const, key: 'F3', label: 'DEBT_CDS', icon: Activity },
@@ -1725,296 +1743,13 @@ export default function App() {
             ) : (
               <>
                 {activeTab === 'WORLD' && (
-              <div className="flex flex-col h-full overflow-hidden select-none font-mono">
-                {/* Tactical Title Header */}
-                <div className="flex justify-between items-center bg-[#0f1318] border border-[#1e2535] p-2 rounded-terminal mb-1.5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)]">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 bg-[#ff3b5c] animate-pulse rounded-full border border-black" />
-                    <span className="text-[10px] text-white font-bold uppercase tracking-wider">PLANETARY CODES: COORDINATES DESK</span>
-                  </div>
-                  <span className="text-[9px] text-[#00c2ff]/80 font-bold">OMEGA NET INFILTRATION // TACTICAL MAP VECTORS</span>
-                </div>
-
-                {/* The Master SVG map view and inspect overlays */}
-                <div className="flex-1 min-h-[220px] bg-[#07090d] border border-[#1e2535] rounded-terminal overflow-hidden relative flex flex-col justify-between">
-                  {/* Planetary grid background with tactical coordinates */}
-                  <div className="absolute inset-x-2 top-2 flex justify-between text-[8px] text-slate-500 font-terminal pointer-events-none">
-                    <span>SECTOR_0.1 // RANGE_CAP: [280-920KM]</span>
-                    <span>BEARING_DIR: 88.01.12</span>
-                  </div>
-
-                  <svg viewBox="0 0 800 380" className="w-full h-full text-slate-800 z-10 flex-1">
-                    <defs>
-                      <pattern id="tacticalGrid" width="40" height="40" patternUnits="userSpaceOnUse">
-                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#121820" strokeWidth="0.8" />
-                      </pattern>
-                    </defs>
-                    <rect width="100%" height="100%" fill="url(#tacticalGrid)" />
-
-                    {/* Orbit track trajectories */}
-                    <ellipse cx="400" cy="190" rx="360" ry="110" className="stroke-slate-800/60 fill-none stroke-1" style={{ strokeDasharray: '4 4' }} />
-                    <ellipse cx="400" cy="190" rx="280" ry="150" className="stroke-[#00c2ff]/10 fill-none stroke-1" />
-
-                    {/* Lines of Equities Flow (USA to EU, EU to CH, CN to USA) */}
-                    <path d="M 220 150 Q 330 80 440 140" fill="none" className="stroke-[#00c2ff]/35 stroke-1" style={{ strokeDasharray: '5, 5' }}>
-                      <animate attributeName="stroke-dashoffset" values="50;0" dur="4s" repeatCount="indefinite" />
-                    </path>
-                    <path d="M 600 170 Q 420 280 220 150" fill="none" className="stroke-rose-900/40 stroke-1" style={{ strokeDasharray: '6, 6' }}>
-                      <animate attributeName="stroke-dashoffset" values="0;50" dur="5s" repeatCount="indefinite" />
-                    </path>
-
-                    {/* Continents custom visual polygons (minimal bento blueprint) */}
-                    <g transform="translate(140, 110)" className="cursor-pointer" onClick={() => { setSelectedRegionId('US'); playSyntheticSound('tick'); }}>
-                      <polygon points="10,20 80,10 140,40 160,80 120,110 50,115" className={`fill-none stroke-2 transition-colors ${selectedRegionId === 'US' ? 'stroke-[#00ff88] fill-[#00ff88]/5' : 'stroke-slate-700/60 hover:stroke-slate-400'}`} />
-                      <text x="45" y="72" className={`text-[9.5px] font-bold ${selectedRegionId === 'US' ? 'fill-[#00ff88]' : 'fill-slate-500'}`}>US_HQ_VAULT</text>
-                    </g>
-
-                    <g transform="translate(400, 90)" className="cursor-pointer" onClick={() => { setSelectedRegionId('EU'); playSyntheticSound('tick'); }}>
-                      <polygon points="20,10 90,5 110,60 80,95 25,85" className={`fill-none stroke-2 transition-colors ${selectedRegionId === 'EU' ? 'stroke-[#00ff88] fill-[#00ff88]/5' : 'stroke-slate-700/60 hover:stroke-slate-400'}`} />
-                      <text x="30" y="55" className={`text-[9.5px] font-bold ${selectedRegionId === 'EU' ? 'fill-[#00ff88]' : 'fill-slate-500'}`}>EU_CREDIT</text>
-                    </g>
-
-                    <g transform="translate(540, 120)" className="cursor-pointer" onClick={() => { setSelectedRegionId('CN'); playSyntheticSound('tick'); }}>
-                      <polygon points="30,10 120,5 140,50 110,90 60,110 15,65" className={`fill-none stroke-2 transition-colors ${selectedRegionId === 'CN' ? 'stroke-[#00ff88] fill-[#00ff88]/5' : 'stroke-slate-700/60 hover:stroke-slate-400'}`} />
-                      <text x="40" y="62" className={`text-[9.5px] font-bold ${selectedRegionId === 'CN' ? 'fill-[#00ff88]' : 'fill-slate-500'}`}>CN_CORRIDOR</text>
-                    </g>
-
-                    <g transform="translate(425, 175)" className="cursor-pointer" onClick={() => { setSelectedRegionId('CH'); playSyntheticSound('tick'); }}>
-                      <polygon points="5,5 35,5 35,25 5,25" className={`fill-none stroke-2 transition-colors ${selectedRegionId === 'CH' ? 'stroke-[#00ff88] fill-[#00ff88]/10' : 'stroke-emerald-600/40 hover:stroke-emerald-400'}`} />
-                      <text x="6" y="19" className="text-[7px] font-bold fill-emerald-400 font-terminal">CH_SEC</text>
-                    </g>
-
-                    {/* Pulsing red OMEGA hazard radar circles around high AI zones */}
-                    {Object.values(gameState.countries).map((c: any) => {
-                      if (!c.aiPenetration || c.aiPenetration < 15) return null;
-                      let cx = 220, cy = 180;
-                      if (c.id === 'US') { cx = 220; cy = 180; }
-                      else if (c.id === 'CN') { cx = 620; cy = 185; }
-                      else if (c.id === 'EU') { cx = 455; cy = 150; }
-                      else if (c.id === 'CH') { cx = 445; cy = 190; }
-
-                      const pulseRadius = 15 + (c.aiPenetration * 0.45);
-                      return (
-                        <g key={c.id}>
-                          <circle cx={cx} cy={cy} r={pulseRadius} className="fill-none stroke-red-650 stroke-1 opacity-40" />
-                          <circle cx={cx} cy={cy} r={pulseRadius + 8} className="fill-none stroke-red-500 stroke-1 opacity-25 animate-pulse" />
-                        </g>
-                      );
-                    })}
-
-                    {/* Satellite trajectories sliding dot nodes */}
-                    {gameState.satelliteCoordinates && gameState.satelliteCoordinates.map((sat: any) => (
-                      <g key={sat.name || sat.id}>
-                        <circle cx={sat.x} cy={sat.y} r={4.5} className="fill-yellow-400 stroke-black stroke-1 animate-pulse" />
-                        <line x1={sat.x} y1={sat.y} x2={sat.x} y2={sat.y + 400} className="stroke-yellow-450/20 stroke-1" style={{ strokeDasharray: '2, 4' }} />
-                        <text x={sat.x + 8} y={sat.y - 1} className="text-[7.5px] fill-yellow-400/90 font-mono italic font-bold">{sat.name}</text>
-                      </g>
-                    ))}
-
-                    {/* Selected region target hud visual coordinates */}
-                    {(() => {
-                      let cx = 220, cy = 180;
-                      if (selectedRegionId === 'US') { cx = 220; cy = 180; }
-                      else if (selectedRegionId === 'CN') { cx = 620; cy = 185; }
-                      else if (selectedRegionId === 'EU') { cx = 455; cy = 150; }
-                      else if (selectedRegionId === 'CH') { cx = 445; cy = 190; }
-
-                      return (
-                        <g>
-                          <circle cx={cx} cy={cy} r="32" className="stroke-[#00ff88] fill-none stroke-1 stroke-dashed animate-pulse" style={{ strokeDasharray: '3 3' }} />
-                          <line x1={cx} y1={cy - 45} x2={cx} y2={cy + 45} className="stroke-[#00ff88]/30 stroke-0.5" />
-                          <line x1={cx - 45} y1={cy} x2={cx + 45} y2={cy} className="stroke-[#00ff88]/30 stroke-0.5" />
-                        </g>
-                      );
-                    })()}
-                  </svg>
-
-                  {/* Satellite scan tracker overlay panel */}
-                  <div className="absolute right-2 top-8 w-44 bg-[#0a0c0f]/85 border border-[#1e2535] p-1.5 rounded-terminal text-[8px] font-terminal leading-snug z-20 text-yellow-500">
-                    <span className="font-bold border-b border-yellow-500/30 block pb-0.5 mb-1 text-yellow-400">// ACTIVE SAT SENSOR ARRAY</span>
-                    <div className="space-y-0.5">
-                      {gameState.satelliteCoordinates && gameState.satelliteCoordinates.map((sat: any) => (
-                        <div key={sat.name || sat.id} className="flex justify-between font-mono">
-                          <span>{sat.name}</span>
-                          <span className="font-bold text-yellow-300">X:{sat.x.toFixed(0)} Y:{sat.y.toFixed(0)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* BOTTOM REGIONAL SPECIAL ACTION INSTRUMENTS BOARD */}
-                {(() => {
-                  const selC: any = gameState.countries[selectedRegionId];
-                  if (!selC) return null;
-                  
-                  // Action helpers
-                  const handleDeployFirewall = () => {
-                    setGameState((prev) => {
-                      if (!prev) return null;
-                      if (prev.player.cash < 100000000) {
-                        logToTerminal('REJECTED: Insufficient cash ($100M required) to deploy cyber defense firewalls.', true);
-                        return prev;
-                      }
-                      const next = { ...prev };
-                      next.player.cash -= 100000000;
-                      next.neuralFirewallPower = Math.min(100, next.neuralFirewallPower + 12);
-                      const t = next.countries[selectedRegionId];
-                      if (t) {
-                        t.aiPenetration = Math.max(0, t.aiPenetration - 25);
-                        t.stability = Math.min(100, t.stability + 8);
-                        logToTerminal(`FIREWALL INSTALLED: Secured sub-network on coordinates ${selectedRegionId}. Threat integrity mitigated.`);
-                        playSyntheticSound('profit');
-                      }
-                      return next;
-                    });
-                  };
-
-                  const handleBailout = () => {
-                    setGameState((prev) => {
-                      if (!prev) return null;
-                      if (prev.player.cash < 1500000000) {
-                        logToTerminal('REJECTED: Insufficient cash ($1.5B required) for regional debt bails.', true);
-                        return prev;
-                      }
-                      const next = { ...prev };
-                      next.player.cash -= 1500000000;
-                      const t = next.countries[selectedRegionId];
-                      if (t) {
-                        t.debtStress = Math.max(0, t.debtStress - 30);
-                        t.opinionOfPlayer = Math.min(100, t.opinionOfPlayer + 20);
-                        t.bondsIssued += 1500000000;
-                        logToTerminal(`BAILOUT APPROVED: Capital injected into ${t.name} state treasury. Bond yields stabilized.`);
-                        playSyntheticSound('profit');
-                      }
-                      return next;
-                    });
-                  };
-
-                  const handleCornerCommodity = () => {
-                    setGameState((prev) => {
-                      if (!prev) return null;
-                      if (prev.player.cash < 50000000) {
-                        logToTerminal('REJECTED: Insufficient cash reserves ($50M required).', true);
-                        return prev;
-                      }
-                      const next = { ...prev };
-                      next.player.cash -= 50000000;
-                      const t = next.countries[selectedRegionId];
-                      if (t) {
-                        t.resourceValue = Math.min(100, t.resourceValue + 12);
-                        t.volatility = Math.min(100, t.volatility + 10);
-                        Object.values(next.markets).forEach((m: any) => {
-                          m.currentPrice *= 1.04;
-                        });
-                        logToTerminal(`CORNER SECTOR: Hoarded physical assets in ${t.name} sector. Commodity future indexes up 4%.`);
-                        playSyntheticSound('order');
-                      }
-                      return next;
-                    });
-                  };
-
-                  const handleSanction = () => {
-                    setGameState((prev) => {
-                      if (!prev) return null;
-                      if (prev.player.cash < 200000000) {
-                        logToTerminal('REJECTED: Insufficient cash ($200M required).', true);
-                        return prev;
-                      }
-                      const next = { ...prev };
-                      next.player.cash -= 200000000;
-                      const t = next.countries[selectedRegionId];
-                      if (t) {
-                        t.stability = Math.max(10, t.stability - 20);
-                        t.unrest = Math.min(100, t.unrest + 15);
-                        t.debtStress = Math.min(100, t.debtStress + 15);
-                        logToTerminal(`EMBARGO EXECUTED: Enforced capital blockade on ${t.name} exchanges. Local unrest increased.`);
-                        playSyntheticSound('warning');
-                      }
-                      return next;
-                    });
-                  };
-
-                  return (
-                    <div className="bg-[#0f1318] border border-[#1e2535] rounded-terminal p-2 mt-1.5 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                      {/* Left: Region Inspect descriptors */}
-                      <div className="bg-[#141920] border border-[#1e2535] p-2 rounded-terminal flex flex-col justify-between">
-                        <div>
-                          <div className="flex justify-between items-center border-b border-slate-900 pb-1 mb-1.5 font-bold uppercase text-[10px]">
-                            <span className="text-[#00ff88]">{selC.name} COORDINATES_COORD</span>
-                            <span className="text-slate-400">ID: {selC.id}</span>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[9.5px]">
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">GDP GROWTH RATE:</span>
-                              <span className="text-white">{(selC.gdpGrowth * 100).toFixed(1)}%</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">SOVEREIGN DEBT STRESS:</span>
-                              <span className="text-white">{selC.debtStress.toFixed(1)}%</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">OMEGA NET AI INFECTION:</span>
-                              <span className="text-red-400 font-bold">{selC.aiPenetration.toFixed(1)}%</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">FOOD SECURITY INDEX:</span>
-                              <span className="text-white">{selC.foodSecurity.toFixed(0)}%</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">ASSET LIQUID VOL:</span>
-                              <span className="text-white">{selC.volatility.toFixed(0)}%</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">POLITICAL HEATWAVE:</span>
-                              <span className="text-white">{selC.politicalHeat.toFixed(0)}%</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-1 border-t border-slate-900/40 pt-1 flex justify-between items-center text-[8.5px] font-terminal italic text-slate-500">
-                          <span>REG LOBBY FRAC: {(selC.capturedLobbyFraction * 100).toFixed(1)}%</span>
-                          <span>CENTRAL RATE: {(selC.interestRate * 100).toFixed(1)}%</span>
-                        </div>
-                      </div>
-
-                      {/* Right: Actions */}
-                      <div className="flex flex-col gap-1.5 justify-center">
-                        <div className="grid grid-cols-2 gap-1 font-terminal">
-                          <button 
-                            onClick={handleDeployFirewall}
-                            className="bg-red-950/30 border border-red-700/50 hover:bg-red-950 text-red-400 font-bold p-1 rounded-terminal uppercase tracking-tight cursor-pointer text-center text-[9px]"
-                          >
-                            DEPLOY DEFENSE FIREWALL <span className="block text-[8px] opacity-75 font-normal">COST: $100M</span>
-                          </button>
-                          <button 
-                            onClick={handleBailout}
-                            className="bg-emerald-950/30 border border-emerald-700/50 hover:bg-emerald-950 text-emerald-400 font-bold p-1 rounded-terminal uppercase tracking-tight cursor-pointer text-center text-[9px]"
-                          >
-                            SOVEREIGN BAILOUT <span className="block text-[8px] opacity-75 font-normal">COST: $1.5B</span>
-                          </button>
-                          <button 
-                            onClick={handleCornerCommodity}
-                            className="bg-[#141920] border border-slate-705 hover:bg-[#1f2631] text-[#00c2ff] font-bold p-1 rounded-terminal uppercase tracking-tight cursor-pointer text-center text-[9px]"
-                          >
-                            CORNER PHYSICAL WEALTH <span className="block text-[8px] opacity-75 font-normal">COST: $50M</span>
-                          </button>
-                          <button 
-                            onClick={handleSanction}
-                            className="bg-[#141920] border border-rose-900/40 hover:bg-rose-950/30 text-[#ff3b5c] font-bold p-1 rounded-terminal uppercase tracking-tight cursor-pointer text-center text-[9px]"
-                          >
-                            EMBARGO VECTORS LOCK <span className="block text-[8px] opacity-75 font-normal">COST: $200M</span>
-                          </button>
-                        </div>
-                      </div>
-
-                    </div>
-                  );
-                })()}
-
-              </div>
-            )}
+                  <GothamTacticalMap
+                    state={gameState!}
+                    onModifyState={onModifySomaticState}
+                    onLogTerminal={logToTerminal}
+                    playSyntheticSound={playSyntheticSound}
+                  />
+                )}
 
             {activeTab === 'AI_WAR' && (
               <IntrusionTraceConsole
@@ -2389,11 +2124,8 @@ export default function App() {
               />
             )}
             {activeTab === 'TRADING' && (
-              <BloomiTradingTerminal
+              <EconomyPanel
                 state={gameState!}
-                selectedTicker={selectedTicker}
-                setSelectedTicker={setSelectedTicker}
-                onExecuteCommand={executeUnifiedCommand}
                 onModifyState={onModifySomaticState}
                 onLogTerminal={logToTerminal}
                 playSyntheticSound={playSyntheticSound}
@@ -2410,27 +2142,11 @@ export default function App() {
               />
             )}
             {activeTab === 'INFLUENCE' && (
-              <InfluenceWeb 
-                state={gameState} 
-                onDonate={(id, amt) => {
-                  setGameState((prev) => {
-                    if (!prev) return null;
-                    const next = { ...prev };
-                    if (next.player.cash < amt) {
-                      logToTerminal('REJECTED: Insufficient cash funds to purchase shadow influence nodes.', true);
-                      return next;
-                    }
-                    next.player.cash -= amt;
-                    const targetNode = next.influenceNodes.find(n => n.id === id);
-                    if (targetNode) {
-                      targetNode.playerControlWeight = Math.min(100, targetNode.playerControlWeight + 15);
-                      logToTerminal(`LOBBY CONTRACT: Contributed $${amt.toLocaleString()} to global lobby target ${targetNode.name}. Captured weights spiked to ${targetNode.playerControlWeight.toFixed(1)}%.`);
-                      playSyntheticSound('order');
-                    }
-                    return next;
-                  });
-                }}
-                onTogglePrinting={handleToggleMonetize}
+              <DiplomacyPanel
+                state={gameState!}
+                onModifyState={onModifySomaticState}
+                onLogTerminal={logToTerminal}
+                playSyntheticSound={playSyntheticSound}
               />
             )}
             {activeTab === 'DYNASTY' && (
@@ -2444,10 +2160,11 @@ export default function App() {
               />
             )}
             {activeTab === 'MACRO' && (
-              <MacroPanel 
-                state={gameState} 
-                onBuyBonds={handleBuyBonds}
-                onTogglePrinting={handleToggleMonetize}
+              <GovernmentPanel
+                state={gameState!}
+                onModifyState={onModifySomaticState}
+                onLogTerminal={logToTerminal}
+                playSyntheticSound={playSyntheticSound}
               />
             )}
             {activeTab === 'CORPORATE' && (
@@ -2465,13 +2182,11 @@ export default function App() {
               />
             )}
             {activeTab === 'OPERATION' && (
-              <FundOpsPanel
-                state={gameState}
-                onHireAnalyst={handleHireAnalyst}
-                onFireAnalyst={handleFireAnalyst}
-                onSendLPReport={handleSendLPReport}
-                lpResponse={lpResponse}
-                lpLoading={lpLoading}
+              <ArsenalPanel
+                state={gameState!}
+                onModifyState={onModifySomaticState}
+                onLogTerminal={logToTerminal}
+                playSyntheticSound={playSyntheticSound}
               />
             )}
             {activeTab === 'MARKETS' && (

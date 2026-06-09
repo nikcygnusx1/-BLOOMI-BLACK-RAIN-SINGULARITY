@@ -64,7 +64,25 @@ export function createInitialWorld(params: {
       aiPenetration: 15,
       volatility: 18,
       politicalHeat: 20,
-      resourceValue: 85
+      resourceValue: 85,
+      // Sovereign and Tactical Fields:
+      treasuryCash: 4200000000000,
+      unrestHistory: [15, 16, 14, 15],
+      approvalRating: 55,
+      electionCountdown: 52,
+      alliance: 'NATO',
+      regimeType: 'DEMOCRACY',
+      spending: { healthcare: 25, infrastructure: 25, military: 30, research: 20 },
+      weapons: [
+        { id: 'us_minuteman', name: 'LGM-30G Minuteman III', type: 'ICBM', stockpile: 400, maintenanceCost: 250000, powerRating: 95 },
+        { id: 'us_f22', name: 'F-22 Raptor', type: 'JET', stockpile: 187, maintenanceCost: 80000, powerRating: 90 },
+        { id: 'us_m1a2', name: 'M1A2 Abrams', type: 'TANK', stockpile: 2500, maintenanceCost: 1200, powerRating: 70 },
+        { id: 'us_ford', name: 'USS Gerald R. Ford', type: 'CARRIER', stockpile: 11, maintenanceCost: 1500000, powerRating: 98 },
+        { id: 'us_ohio', name: 'Ohio-class SSGN', type: 'SUB', stockpile: 18, maintenanceCost: 600000, powerRating: 92 },
+        { id: 'us_omega_worm', name: 'OMEGA Worm Vector', type: 'CYBER', stockpile: 1, maintenanceCost: 50000, powerRating: 85 },
+        { id: 'us_haarp', name: 'HAARP Wave Generator', type: 'CLIMATE', stockpile: 1, maintenanceCost: 400000, powerRating: 94 }
+      ],
+      martialLaw: false
     },
     {
       id: 'CN',
@@ -93,7 +111,25 @@ export function createInitialWorld(params: {
       aiPenetration: 45,
       volatility: 22,
       politicalHeat: 35,
-      resourceValue: 95
+      resourceValue: 95,
+      // Sovereign and Tactical Fields:
+      treasuryCash: 3800000000000,
+      unrestHistory: [10, 11, 10, 11],
+      approvalRating: 70,
+      electionCountdown: 0,
+      alliance: 'BRICS',
+      regimeType: 'DICTATORSHIP',
+      spending: { healthcare: 15, infrastructure: 35, military: 35, research: 15 },
+      weapons: [
+        { id: 'cn_df41', name: 'DF-41 Road-Mobile ICBM', type: 'ICBM', stockpile: 350, maintenanceCost: 200000, powerRating: 96 },
+        { id: 'cn_j20', name: 'J-20 Mighty Dragon', type: 'JET', stockpile: 150, maintenanceCost: 70000, powerRating: 88 },
+        { id: 'cn_type99a', name: 'Type 99A Tank', type: 'TANK', stockpile: 3000, maintenanceCost: 1000, powerRating: 72 },
+        { id: 'cn_fujian', name: 'Fujian Type 003', type: 'CARRIER', stockpile: 3, maintenanceCost: 1200000, powerRating: 91 },
+        { id: 'cn_type094', name: 'Type 094 Jin-class', type: 'SUB', stockpile: 6, maintenanceCost: 500000, powerRating: 89 },
+        { id: 'cn_scythe', name: 'Scythe Arbitrage Core', type: 'CYBER', stockpile: 1, maintenanceCost: 60000, powerRating: 87 },
+        { id: 'cn_seeder', name: 'Silver Iodine Cloud Seeder', type: 'CLIMATE', stockpile: 2, maintenanceCost: 150000, powerRating: 82 }
+      ],
+      martialLaw: false
     },
     {
       id: 'EU',
@@ -122,7 +158,25 @@ export function createInitialWorld(params: {
       aiPenetration: 25,
       volatility: 20,
       politicalHeat: 25,
-      resourceValue: 70
+      resourceValue: 70,
+      // Sovereign and Tactical Fields:
+      treasuryCash: 3500000000000,
+      unrestHistory: [20, 22, 19, 20],
+      approvalRating: 48,
+      electionCountdown: 35,
+      alliance: 'NATO',
+      regimeType: 'DEMOCRACY',
+      spending: { healthcare: 40, infrastructure: 25, military: 15, research: 20 },
+      weapons: [
+        { id: 'eu_m51', name: 'M51 SLBM Interceptor', type: 'ICBM', stockpile: 290, maintenanceCost: 180000, powerRating: 93 },
+        { id: 'eu_typhoon', name: 'Eurofighter Typhoon', type: 'JET', stockpile: 400, maintenanceCost: 60000, powerRating: 85 },
+        { id: 'eu_leopard', name: 'Leopard 2A7', type: 'TANK', stockpile: 2000, maintenanceCost: 1100, powerRating: 75 },
+        { id: 'eu_degaulle', name: 'Charles de Gaulle', type: 'CARRIER', stockpile: 1, maintenanceCost: 1400000, powerRating: 92 },
+        { id: 'eu_astute', name: 'Astute-class Attack Sub', type: 'SUB', stockpile: 10, maintenanceCost: 450000, powerRating: 90 },
+        { id: 'eu_echelon', name: 'Echelon Cyber Array', type: 'CYBER', stockpile: 1, maintenanceCost: 40000, powerRating: 82 },
+        { id: 'eu_aerosol', name: 'Stratospheric Aerosol Injector', type: 'CLIMATE', stockpile: 1, maintenanceCost: 200000, powerRating: 88 }
+      ],
+      martialLaw: false
     },
     {
       id: 'CH',
@@ -151,7 +205,21 @@ export function createInitialWorld(params: {
       aiPenetration: 12,
       volatility: 12,
       politicalHeat: 5,
-      resourceValue: 50
+      resourceValue: 50,
+      // Sovereign and Tactical Fields:
+      treasuryCash: 1200000000000,
+      unrestHistory: [2, 2, 3, 2],
+      approvalRating: 85,
+      electionCountdown: 100,
+      alliance: 'NEUTRAL',
+      regimeType: 'DEMOCRACY',
+      spending: { healthcare: 30, infrastructure: 30, military: 10, research: 30 },
+      weapons: [
+        { id: 'ch_iron_dome', name: 'High-Tech Defensive Shield', type: 'ICBM', stockpile: 50, maintenanceCost: 90000, powerRating: 98 },
+        { id: 'ch_f35', name: 'Defensive F-35A Raptor Network', type: 'JET', stockpile: 36, maintenanceCost: 60000, powerRating: 85 },
+        { id: 'ch_centurion', name: 'Heavy Centurion Interceptors', type: 'TANK', stockpile: 100, maintenanceCost: 1500, powerRating: 80 }
+      ],
+      martialLaw: false
     }
   ];
 
@@ -416,7 +484,9 @@ export function createInitialWorld(params: {
       { fromId: "US", toId: "EU", strength: 3 },
       { fromId: "CN", toId: "US", strength: 5 },
       { fromId: "EU", toId: "CN", strength: 2 }
-    ]
+    ],
+    activeStrikes: [],
+    commoditiesSpotPrice: { soy: 65, fuel: 85, defense: 120, chips: 180 }
   };
 }
 

@@ -10,6 +10,35 @@ export interface CentralBank {
   printingPressOverride: boolean;
 }
 
+export type RegimeType = 'DEMOCRACY' | 'DICTATORSHIP';
+
+export interface SovereignSpending {
+  healthcare: number;
+  infrastructure: number;
+  military: number;
+  research: number;
+}
+
+export interface WeaponSystem {
+  id: string;
+  name: string;
+  type: 'ICBM' | 'JET' | 'TANK' | 'CARRIER' | 'SUB' | 'CYBER' | 'CLIMATE';
+  stockpile: number;
+  maintenanceCost: number;
+  powerRating: number;
+}
+
+export interface ActiveStrike {
+  id: string;
+  source: string;
+  target: string;
+  weaponId: string;
+  progress: number;
+  bezierPoints: { x: number; y: number }[];
+  impactTick: number;
+  damageAmount?: number;
+}
+
 export interface TaxRates {
   income: number;
   corporate: number;
@@ -41,6 +70,17 @@ export interface Country {
   volatility: number; // 0 to 100
   politicalHeat: number; // 0 to 100
   resourceValue: number; // 0 to 100 (rating)
+
+  // Sovereign and Tactical Fields:
+  treasuryCash: number;
+  unrestHistory?: number[];
+  approvalRating: number;
+  electionCountdown: number;
+  alliance: 'NATO' | 'BRICS' | 'NEUTRAL';
+  regimeType: RegimeType;
+  spending: SovereignSpending;
+  weapons: WeaponSystem[];
+  martialLaw: boolean;
 }
 
 export interface BoardMember {
@@ -276,4 +316,6 @@ export interface SimState {
   satelliteCoordinates: { id?: string; name: string; x: number; y: number }[]; // coordinates on physical map
   capitalFlowBeams: { fromId: string; toId: string; strength: number }[]; // capital beams coordinates for SVG canvas
   activeBots?: { sigmaHunter?: boolean; cdsReaper?: boolean; scytheArbitrage?: boolean; [key: string]: any };
+  activeStrikes: ActiveStrike[];
+  commoditiesSpotPrice: { soy: number; fuel: number; defense: number; chips: number };
 }

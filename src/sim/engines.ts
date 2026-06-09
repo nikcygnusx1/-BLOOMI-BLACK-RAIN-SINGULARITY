@@ -3,11 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { SimState, Country, Company, Market, CryptoChain, HedgeFund, InfluenceNode, DynastyMember, TraumaLog, CableLog, LabStructure, ResearchNode, LaboratoryStaff } from '../types';
+import { SimState, Country, Company, Market, CryptoChain, HedgeFund, InfluenceNode, DynastyMember, TraumaLog, CableLog, LabStructure, ResearchNode, LaboratoryStaff, ActiveStrike } from '../types';
 
 export class GeopoliticalOmegaEngine {
   
   static tick(state: SimState): SimState {
+    // At the start of every tick, set state.player.cash = playerCountry.treasuryCash
+    const nationality = state.player?.nationality || 'US';
+    const playerCountryStart = state.countries[nationality];
+    if (playerCountryStart) {
+      state.player.cash = playerCountryStart.treasuryCash;
+    }
+
     // 0. Run Black Rain Climate Lab Simulation Systems (power, crops, disaster, weather)
     state = this.tickLabClimate(state);
 
@@ -46,6 +53,12 @@ export class GeopoliticalOmegaEngine {
 
     // 8. Run Advanced Hedge Fund Mechanics (leveraged risk, shorts, salary, career stages)
     state = this.tickExtendedMechanics(state);
+
+    // At the end of every tick, set playerCountry.treasuryCash = state.player.cash
+    const playerCountryEnd = state.countries[nationality];
+    if (playerCountryEnd) {
+      playerCountryEnd.treasuryCash = state.player.cash;
+    }
 
     return state;
   }
@@ -198,6 +211,105 @@ export class GeopoliticalOmegaEngine {
   private static tickGeopolitics(state: SimState): SimState {
     const defaultDateString = state.date;
 
+    // A. Clean and process active strikes list
+    if (!state.activeStrikes) {
+      state.activeStrikes = [];
+    }
+
+    const remainingStrikes: ActiveStrike[] = [];
+    state.activeStrikes.forEach((strike) => {
+      strike.progress += 20;
+      if (strike.progress >= 100) {
+        // Strike Impacts!
+        const targetCountry = state.countries[strike.target];
+        const sourceCountry = state.countries[strike.source];
+        if (targetCountry) {
+          // Calculate intercept chance based on weapon stocks of anti-missile defense shields or default values
+          const hasInterceptors = targetCountry.weapons?.some(w => w.type === 'ICBM' && w.stockpile > 5) || false;
+          const interceptChance = targetCountry.id === 'CH' ? 0.95 : (hasInterceptors ? 0.65 : 0.15);
+          const isIntercepted = Math.random() < interceptChance;
+
+          if (isIntercepted) {
+            // Deduct interceptor ammunition from targets
+            if (targetCountry.weapons) {
+              const interceptor = targetCountry.weapons.find(w => w.type === 'ICBM' && w.stockpile > 0);
+              if (interceptor) {
+                interceptor.stockpile = Math.max(0, interceptor.stockpile - 1);
+              }
+            }
+            state.cables.push({
+              time: `${defaultDateString} 12:00:00`,
+              source: 'SHIELD_SYS',
+              message: `SHIELD INTERCEPT: ${targetCountry.name} Anti-Ballistic Aegis successfully vaporized incoming warhead from ${strike.source}. No fallout detected.`,
+              classification: 'TOP_SECRET'
+            });
+          } else {
+            // Impact fallout!
+            targetCountry.stability = Math.max(0, targetCountry.stability - 30);
+            targetCountry.unrest = Math.min(100, targetCountry.unrest + 40);
+            targetCountry.gdp = Math.max(1e10, targetCountry.gdp * 0.85);
+
+            // Arsenal decay upon target devastation
+            if (targetCountry.weapons) {
+              targetCountry.weapons.forEach(w => {
+                w.stockpile = Math.max(0, Math.floor(w.stockpile * 0.80));
+              });
+            }
+
+            state.cables.push({
+              time: `${defaultDateString} 12:02:15`,
+              source: 'SOVEREIGN_WARN',
+              message: `FATAL IMPACT: Tactical strike from ${strike.source} impacted target coordinates in ${targetCountry.name}. Stability fell -30 points, unrest spiked +40 points.`,
+              classification: 'EYES_ONLY'
+            });
+
+            state.traumaLog.push({
+              id: Math.random().toString(),
+              tick: state.currentTick,
+              date: state.date,
+              eventType: 'WAR',
+              description: `Armed ballistic missile detonated inside ${targetCountry.name} territories (originating from ${strike.source}). Collateral fallout damages vital sovereign assets.`,
+              severity: 10
+            });
+
+            state.globalStability = Math.max(0, state.globalStability - 20);
+
+            // Diplomatic Aggression and Superpower Retaliation
+            if (targetCountry.id !== 'CH') {
+              const retaliatoryWeapon = targetCountry.weapons?.find(w => w.type === 'ICBM' && w.stockpile > 0);
+              if (retaliatoryWeapon) {
+                retaliatoryWeapon.stockpile = Math.max(0, retaliatoryWeapon.stockpile - 1);
+                state.activeStrikes.push({
+                  id: `strike_retaliation_${Math.random()}`,
+                  source: targetCountry.id,
+                  target: strike.source,
+                  weaponId: retaliatoryWeapon.id,
+                  progress: 0,
+                  bezierPoints: [
+                    { x: targetCountry.id === 'CN' ? 520 : 380, y: 150 },
+                    { x: 300, y: 60 },
+                    { x: strike.source === 'US' ? 180 : 340, y: 150 }
+                  ],
+                  impactTick: state.currentTick + 3
+                });
+
+                state.cables.push({
+                  time: `${defaultDateString} 12:10:00`,
+                  source: 'AI_RETALIATION',
+                  message: `RETALIATION SEQUENCE DEPLOYED: ${targetCountry.name} locks targets and launches direct ballistic response against ${strike.source}.`,
+                  classification: 'CONFIDENTIAL'
+                });
+              }
+            }
+          }
+        }
+      } else {
+        remainingStrikes.push(strike);
+      }
+    });
+    state.activeStrikes = remainingStrikes;
+
+    // B. Run calculations for each country
     Object.values(state.countries).forEach((c: Country) => {
       // Look up captured fractional lobbying (from influence nodes)
       const relativeNode = state.influenceNodes.find(n => n.type === 'Lobby' && n.nation === c.id);
@@ -210,7 +322,6 @@ export class GeopoliticalOmegaEngine {
       const totalLayoffsFactor = relatedCompanies.reduce((acc, curr) => acc + curr.layoffsPercentage, 0);
 
       if (totalLayoffsFactor > 0.05) {
-        // Layoff spillover -> Unrest spikes
         c.unrest = Math.min(100, c.unrest + totalLayoffsFactor * 12);
         c.stability = Math.max(0, c.stability - totalLayoffsFactor * 8);
         
@@ -230,7 +341,6 @@ export class GeopoliticalOmegaEngine {
       c.inflation += (targetInflation - c.inflation) * 0.1;
 
       // Unrest forces Risk Premium Spike -> Sovereign Bond Yields Rise!
-      // This is a core mechanics element of the "Hell-Loop"
       const debtToGdp = c.bondsIssued / (c.gdp || 1);
       const riskPremiumFactor = (c.unrest / 100) * 0.08 + (debtToGdp - 0.5) * 0.04;
       const sovereignYield = c.interestRate + Math.max(0, riskPremiumFactor);
@@ -259,17 +369,13 @@ export class GeopoliticalOmegaEngine {
       }
 
       // CENTRAL BANK PUPPETRY & THE PRINTING PRESS
-      // If Captured lobby is >= 80% (0.80), unlock printing press and let player set rate and print money directly
       if (c.centralBank.printingPressOverride) {
-        // Player overrides the Central Bank
-        // Triggers massive inflation and drains GDP to feed back into corporate reserves
         c.gdp = Math.max(1e10, c.gdp * 0.99); // Cannibalize 1% GDP per tick!
         c.inflation = Math.min(1.0, c.inflation + 0.02); // Hyper-inflation
         c.unrest = Math.min(100, c.unrest + 4);
         c.stability = Math.max(0, c.stability - 3);
 
-        // Every tick of printing press injects player cash flow!
-        state.player.cash += 5000000000; // Directly injects $5B cash per tick into player accounts!
+        state.player.cash += 5000000000; // Directly injects $5B cash per tick!
         c.moneySupply += 12000000000; // Bloat central bank supply
 
         if (state.currentTick % 8 === 0) {
@@ -281,13 +387,137 @@ export class GeopoliticalOmegaEngine {
           });
         }
       } else {
-        // Normal automated central bank Taylor Rule behavior
         const inflationGap = c.inflation - 0.02;
         const unemploymentGap = 0.04 - c.unemployment;
         const targetRate = Math.max(0.0025, 0.02 + 1.5 * inflationGap + 0.5 * unemploymentGap);
         c.centralBank.rate += (targetRate - c.centralBank.rate) * 0.08;
         c.interestRate = c.centralBank.rate;
       }
+
+      // Fiscal Policies: taxes generate weekly revenues based on GDP, budget costs are deducted
+      const weeklyGDP = c.gdp / 52;
+      const taxRevenue = weeklyGDP * (c.taxRates.income * 0.20 + c.taxRates.corporate * 0.15 + (c.taxRates.capitalGains || 0.20) * 0.05);
+      const weeklyExpense = c.budget / 52;
+      
+      c.treasuryCash = (c.treasuryCash || 0) + taxRevenue - weeklyExpense;
+
+      // Decay and Maintenance
+      let totalMaintenance = 0;
+      if (c.weapons) {
+        c.weapons.forEach(w => {
+          totalMaintenance += w.stockpile * w.maintenanceCost;
+        });
+      }
+
+      const militaryBudget = weeklyExpense * (c.spending?.military || 25) / 100;
+      if (militaryBudget < totalMaintenance) {
+        // Shortfall triggers weapons stockpile decay
+        if (c.weapons) {
+          c.weapons.forEach(w => {
+            if (w.stockpile > 5) {
+              const decay = Math.ceil(w.stockpile * 0.03); // 3% decay
+              w.stockpile -= decay;
+            }
+          });
+        }
+        c.unrest = Math.min(100, c.unrest + 1.5);
+        c.stability = Math.max(0, c.stability - 1.2);
+
+        if (state.currentTick % 10 === 0) {
+          state.cables.push({
+            time: `${defaultDateString} 11:30:00`,
+            source: 'LOGISTICS',
+            message: `DEFENSE SHORTFALL: ${c.name} military budget shortfall of $${((totalMaintenance - militaryBudget)/1e6).toFixed(1)}M triggers active arsenal degradation.`,
+            classification: 'SECRET'
+          });
+        }
+      }
+
+      // Regimes Simulation
+      if (c.regimeType === 'DEMOCRACY') {
+        if (c.electionCountdown !== undefined && c.electionCountdown > 0) {
+          c.electionCountdown--;
+          if (c.electionCountdown <= 0) {
+            c.electionCountdown = 52; // Reset election cycle
+            if (c.approvalRating < 40) {
+              // Election failure triggers military coup!
+              c.regimeType = 'DICTATORSHIP';
+              c.stability = 15;
+              c.unrest = 80;
+              c.alliance = 'NEUTRAL';
+              c.treasuryCash = Math.floor(c.treasuryCash * 0.5);
+
+              state.cables.push({
+                time: `${defaultDateString} 00:01:00`,
+                source: 'SYS_ALERT',
+                message: `DEMOCRATIC FAILURE: popular discontent in ${c.name} collapses coalition government. Paramilitary elements occupy administration centers to restore martial dictatorships.`,
+                classification: 'EYES_ONLY'
+              });
+
+              if (c.id === (state.player.nationality || 'US')) {
+                state.traumaLog.push({
+                  id: Math.random().toString(),
+                  tick: state.currentTick,
+                  date: state.date,
+                  eventType: 'REVOLUTION',
+                  description: `SOVEREIGN CRISIS: Disgraceful approval rating of under 40% led directly to your democratic ouster and establishment of a ruling military Junta.`,
+                  severity: 9
+                });
+                state.player.influence = Math.max(0, state.player.influence - 50);
+              }
+            } else {
+              // Re-election success
+              c.unrest = Math.max(0, c.unrest - 8);
+              c.stability = Math.min(100, c.stability + 10);
+              state.cables.push({
+                time: `${defaultDateString} 20:00:00`,
+                source: 'ELECT_SYS',
+                message: `ELECTION VICTORY: incumbent party wins re-election in ${c.name} with ${c.approvalRating.toFixed(0)}% approval rating. Stability solidified.`,
+                classification: 'CONFIDENTIAL'
+              });
+            }
+          }
+        }
+      } else if (c.regimeType === 'DICTATORSHIP') {
+        // High unrest combined with low stability triggers revolution unless suppressed
+        if (c.unrest > 85 && c.stability < 25) {
+          if (c.martialLaw || (c.spending?.military || 0) >= 30) {
+            // Crackdown succeeds
+            c.stability = Math.min(100, c.stability + 20);
+            c.unrest = Math.max(0, c.unrest - 20);
+            c.approvalRating = Math.max(0, c.approvalRating - 15);
+
+            state.cables.push({
+              time: `${defaultDateString} 23:50:00`,
+              source: 'SOV_POLICE',
+              message: `TACTICAL SUPPRESSION: Rioters in ${c.name} dispersed via heavy sovereign crackdowns. Unrest subdued.`,
+              classification: 'SECRET'
+            });
+          } else {
+            // Revolution overthrows dictator
+            c.regimeType = 'DEMOCRACY';
+            c.electionCountdown = 52;
+            c.stability = 40;
+            c.unrest = 30;
+            c.approvalRating = 50;
+            c.alliance = 'NEUTRAL';
+            c.treasuryCash = Math.floor(c.treasuryCash * 0.4);
+
+            state.cables.push({
+              time: `${defaultDateString} 04:30:00`,
+              source: 'REVO_CORE',
+              message: `REBELLION SUCCESS: Dictator overthrown in ${c.name}. Democratic rule declared under new independent provisional assembly.`,
+              classification: 'EYES_ONLY'
+            });
+          }
+        }
+      }
+
+      // Dynamic Approval Setting
+      let idealApproval = 50 + (c.stability - c.unrest) * 0.4;
+      if (c.inflation > 0.05) idealApproval -= (c.inflation * 200);
+      if (c.unemployment > 0.05) idealApproval -= (c.unemployment * 100);
+      c.approvalRating = Math.max(0, Math.min(100, c.approvalRating + (idealApproval - c.approvalRating) * 0.1));
 
       // Normal GDP updates
       const laborProductivityLoss = (c.unrest / 100) * 0.04;
