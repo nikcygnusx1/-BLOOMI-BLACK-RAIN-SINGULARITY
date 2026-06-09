@@ -203,14 +203,25 @@ export const LabMapView: React.FC<LabMapViewProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const dpr = window.devicePixelRatio || 1;
+    const logicalWidth = 580;
+    const logicalHeight = 380;
+
+    canvas.width = logicalWidth * dpr;
+    canvas.height = logicalHeight * dpr;
+    canvas.style.width = `${logicalWidth}px`;
+    canvas.style.height = `${logicalHeight}px`;
+
+    ctx.scale(dpr, dpr);
+
     let frameCount = 0;
 
     const render = () => {
       frameCount++;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, logicalWidth, logicalHeight);
 
-      const tileW = canvas.width / GRID_COLS;
-      const tileH = canvas.height / GRID_ROWS;
+      const tileW = logicalWidth / GRID_COLS;
+      const tileH = logicalHeight / GRID_ROWS;
 
       // Draw background cybernetic wireframe grids
       for (let r = 0; r < GRID_ROWS; r++) {
@@ -307,8 +318,8 @@ export const LabMapView: React.FC<LabMapViewProps> = ({
         ctx.lineWidth = 1;
         const rainDensity = state.currentWeather === 'MONSOON_BREACH' ? 15 : 6;
         for (let i = 0; i < rainDensity; i++) {
-          const rx = Math.random() * canvas.width;
-          const ry = Math.random() * canvas.height;
+          const rx = Math.random() * logicalWidth;
+          const ry = Math.random() * logicalHeight;
           ctx.beginPath();
           ctx.moveTo(rx, ry);
           ctx.lineTo(rx - 4, ry + 15);
@@ -318,21 +329,21 @@ export const LabMapView: React.FC<LabMapViewProps> = ({
         // Draw lightning flashes overlay occasionally
         if (state.currentWeather === 'LIGHTNING_STORM' && Math.random() < 0.05) {
           ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillRect(0, 0, logicalWidth, logicalHeight);
         }
       }
 
       // Animated Floor Flood overlays
       if (state.floodLevel > 0) {
         ctx.fillStyle = 'rgba(0, 194, 255, 0.12)';
-        const floodY = canvas.height - (canvas.height * (state.floodLevel / 100));
-        ctx.fillRect(0, floodY, canvas.width, canvas.height - floodY);
+        const floodY = logicalHeight - (logicalHeight * (state.floodLevel / 100));
+        ctx.fillRect(0, floodY, logicalWidth, logicalHeight - floodY);
 
         ctx.strokeStyle = 'rgba(0, 194, 255, 0.45)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(0, floodY);
-        ctx.lineTo(canvas.width, floodY);
+        ctx.lineTo(logicalWidth, floodY);
         ctx.stroke();
       }
 

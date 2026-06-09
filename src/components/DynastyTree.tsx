@@ -55,14 +55,16 @@ export const DynastyTree: React.FC<DynastyTreeProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const width = rect.width || dimensions.width;
+    const height = rect.height || dimensions.height;
+
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+
     const renderLoop = () => {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = dimensions.width * dpr;
-      canvas.height = dimensions.height * dpr;
-      ctx.scale(dpr, dpr);
-
-      const { width, height } = dimensions;
-
       // Dark futuristic matrix gradient background
       ctx.fillStyle = '#06070a';
       ctx.fillRect(0, 0, width, height);

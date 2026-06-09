@@ -107,15 +107,24 @@ export function BunkerPanel({ state, onModifyState, onLogTerminal, playSynthetic
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const logicalWidth = rect.width || 460;
+    const logicalHeight = rect.height || 320;
+
+    canvas.width = logicalWidth * dpr;
+    canvas.height = logicalHeight * dpr;
+    ctx.scale(dpr, dpr);
+
     let animId: number;
 
     const renderSchematic = () => {
       // Clear canvas
       ctx.fillStyle = '#030304';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, logicalWidth, logicalHeight);
 
-      const width = canvas.width;
-      const height = canvas.height;
+      const width = logicalWidth;
+      const height = logicalHeight;
 
       // Draw earth grid template background
       ctx.strokeStyle = '#141a20';

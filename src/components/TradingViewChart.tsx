@@ -54,11 +54,13 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({ state, activ
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = dimensions.width * dpr;
-    canvas.height = dimensions.height * dpr;
-    ctx.scale(dpr, dpr);
+    const rect = canvas.getBoundingClientRect();
+    const width = rect.width || dimensions.width;
+    const height = rect.height || dimensions.height;
 
-    const { width, height } = dimensions;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
 
     // Background matching our new deep dark color theme (#0f1318)
     ctx.fillStyle = '#0f1318';
@@ -160,13 +162,46 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({ state, activ
         ctx.lineTo(cX, yLow);
         ctx.stroke();
 
-        // Draw body core
-        ctx.fillStyle = themeColor;
+        // Draw body core: hollow for bull, solid for bear
         const bodyW = Math.max(3, candleW * 0.72);
         const bodyH = Math.max(1.5, Math.abs(yClose - yOpen));
-        ctx.fillRect(cX - bodyW / 2, Math.min(yOpen, yClose), bodyW, bodyH);
+        if (isBull) {
+          ctx.strokeStyle = themeColor;
+          ctx.lineWidth = 1.2;
+          ctx.strokeRect(cX - bodyW / 2, Math.min(yOpen, yClose), bodyW, bodyH);
+        } else {
+          ctx.fillStyle = themeColor;
+          ctx.fillRect(cX - bodyW / 2, Math.min(yOpen, yClose), bodyW, bodyH);
+        }
       }
     });
+
+    // Calculate and Draw SMA gold trend overlay
+    const smaPeriod = 10;
+    if (history.length >= smaPeriod) {
+      const smaValues: { x: number; y: number }[] = [];
+      for (let i = smaPeriod - 1; i < history.length; i++) {
+        let sum = 0;
+        for (let j = 0; j < smaPeriod; j++) {
+          sum += history[i - j].close;
+        }
+        const avg = sum / smaPeriod;
+        const x = paddingLeft + i * candleW + candleW / 2;
+        const y = paddingTop + chartHeight * (1 - (avg - minP) / (maxP - minP));
+        smaValues.push({ x, y });
+      }
+
+      if (smaValues.length > 0) {
+        ctx.strokeStyle = '#ffb300';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(smaValues[0].x, smaValues[0].y);
+        for (let i = 1; i < smaValues.length; i++) {
+          ctx.lineTo(smaValues[i].x, smaValues[i].y);
+        }
+        ctx.stroke();
+      }
+    }
 
     // Drawing Line chart layout with smooth overlay gradient mapping
     if (chartType === 'line' && coords.length > 0) {
